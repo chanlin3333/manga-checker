@@ -1,6 +1,13 @@
 import unittest
+from datetime import date
 
-from manga_checker.dates import format_release_date, iter_months, prefer_pubdate
+from manga_checker.dates import (
+    format_release_date,
+    format_year_month,
+    iter_month_offsets,
+    iter_months,
+    prefer_pubdate,
+)
 from manga_checker.official import OfficialHit, OfficialIndex, lookup_status
 from manga_checker.privilege import STATUS_NO, STATUS_YES
 
@@ -23,6 +30,52 @@ class DateFormatTests(unittest.TestCase):
         self.assertEqual(
             iter_months(2026, 11, 4),
             [(2026, 11), (2026, 12), (2027, 1), (2027, 2)],
+        )
+
+    def test_format_year_month_has_no_zero_pad(self) -> None:
+        self.assertEqual(format_year_month(2026, 6), "2026年6月")
+        self.assertEqual(format_year_month(2027, 1), "2027年1月")
+
+    def test_iter_month_offsets_seven_around_september(self) -> None:
+        self.assertEqual(
+            iter_month_offsets(2026, 9, today=date(2026, 9, 15)),
+            [
+                (2026, 6),
+                (2026, 7),
+                (2026, 8),
+                (2026, 9),
+                (2026, 10),
+                (2026, 11),
+                (2026, 12),
+            ],
+        )
+
+    def test_iter_month_offsets_wraps_new_year(self) -> None:
+        self.assertEqual(
+            iter_month_offsets(2026, 11, today=date(2026, 11, 1)),
+            [
+                (2026, 8),
+                (2026, 9),
+                (2026, 10),
+                (2026, 11),
+                (2026, 12),
+                (2027, 1),
+                (2027, 2),
+            ],
+        )
+
+    def test_iter_month_offsets_defaults_to_today(self) -> None:
+        self.assertEqual(
+            iter_month_offsets(today=date(2027, 1, 20)),
+            [
+                (2026, 10),
+                (2026, 11),
+                (2026, 12),
+                (2027, 1),
+                (2027, 2),
+                (2027, 3),
+                (2027, 4),
+            ],
         )
 
     def test_prefer_full_openbd_date(self) -> None:

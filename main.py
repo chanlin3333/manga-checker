@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import warnings
 from datetime import date
 from pathlib import Path
 
+from urllib3.exceptions import InsecureRequestWarning
+
 from manga_checker.catalog import fetch_months_volume_ones
-from manga_checker.dates import iter_months
+from manga_checker.dates import format_year_month, iter_month_offsets, iter_months
 from manga_checker.http import configure_ssl, make_session
 from manga_checker.models import ComicReport
 from manga_checker.official import OfficialIndex
@@ -19,15 +22,15 @@ from manga_checker.stores import check_stores
 def parse_args() -> argparse.Namespace:
     today = date.today()
     parser = argparse.ArgumentParser(
-        description="当月から数ヶ月分のコミック第1巻を集め、書店特典の確認用一覧を作ります。"
+        description="今日を基準に前後3ヶ月（計7ヶ月）のコミック第1巻を集め、書店特典の確認用一覧を作ります。"
     )
-    parser.add_argument("--year", type=int, default=today.year, help="開始年（省略時は今年）")
-    parser.add_argument("--month", type=int, default=today.month, help="開始月 1-12（省略時は今月）")
+    parser.add_argument("--year", type=int, default=today.year, help="基準年（省略時は今年＝当月タブ）")
+    parser.add_argument("--month", type=int, default=today.month, help="基準月 1-12（省略時は今月＝初期選択）")
     parser.add_argument(
         "--months",
         type=int,
-        default=4,
-        help="開始月から何ヶ月分を取得するか（省略時は当月含む4ヶ月）",
+        default=None,
+        help="指定時のみ、基準月から連続Nヶ月（省略時は基準月の前後3ヶ月・計7タブ）",
     )
     parser.add_argument(
         "--fetch",
@@ -59,15 +62,21 @@ def main() -> None:
     args = parse_args()
     if not 1 <= args.month <= 12:
         raise SystemExit("month は 1〜12 で指定してください。")
-    if args.months < 1:
+    if args.months is not None and args.months < 1:
         raise SystemExit("months は 1 以上で指定してください。")
 
     configure_ssl(insecure=True if args.insecure else None)
+    warnings.filterwarnings("ignore", category=InsecureRequestWarning)
     if args.insecure:
         print("SSL検証を無効化しています（--insecure）。")
 
-    windows = iter_months(args.year, args.month, args.months)
-    labels = "、".join(f"{year}年{month}月" for year, month in windows)
+    if args.months is not None:
+        windows = iter_months(args.year, args.month, args.months)
+        active_period = windows[0]
+    else:
+        windows = iter_month_offsets(args.year, args.month, before=3, after=3)
+        active_period = (args.year, args.month)
+    labels = "、".join(format_year_month(year, month) for year, month in windows)
     print(f"書誌を取得しています… {labels}（楽天APIは1回の走査で期間内を振り分けます。--limit は月ごとの出力件数です）")
 
     session = make_session()
@@ -80,16 +89,19 @@ def main() -> None:
     all_reports: list[ComicReport] = []
     for year, month in windows:
         print()
-        print(f"===== {year}年{month}月 =====")
+        print(f"===== {format_year_month(year, month)} =====")
         comics = list(comics_by_month.get((year, month), []))
         comics.sort(
             key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title)
         )
         if args.limit and args.limit > 0:
             comics = comics[: args.limit]
-            print(f"--limit {args.limit} により {year}年{month}月の出力を {len(comics)} 件に絞りました。")
+            print(
+                f"--limit {args.limit} により {format_year_month(year, month)}の出力を "
+                f"{len(comics)} 件に絞りました。"
+            )
         else:
-            print(f"{year}年{month}月の第1巻を全件処理します: {len(comics)} 件")
+            print(f"{format_year_month(year, month)}の第1巻を全件処理します: {len(comics)} 件")
 
         reports: list[ComicReport] = []
         for i, comic in enumerate(comics, start=1):
@@ -112,14 +124,19 @@ def main() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     if len(windows) == 1:
-        year, month = windows[0]
-        heading = f"{year}年{month}月 コミック第1巻 書店特典チェック"
+        heading = f"{format_year_month(*windows[0])} コミック第1巻 書店特典チェック"
     else:
         heading = "コミック第1巻 書店特典チェック"
     csv_path = args.out_dir / "volume1_privileges.csv"
     html_path = args.out_dir / "volume1_privileges.html"
     write_csv(all_reports, csv_path)
-    write_html(all_reports, html_path, heading, month_panels=month_panels)
+    write_html(
+        all_reports,
+        html_path,
+        heading,
+        month_panels=month_panels,
+        active_period=active_period,
+    )
     print()
     print("完了しました。")
     print(f"  CSV : {csv_path.resolve()}")

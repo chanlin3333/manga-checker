@@ -7,7 +7,7 @@ import html
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from manga_checker.dates import format_release_date
+from manga_checker.dates import format_release_date, format_year_month
 from manga_checker.links import amazon_url, rakuten_url
 from manga_checker.models import Comic, ComicReport, StoreCheck
 from manga_checker.privilege import STATUS_NO, STATUS_UNKNOWN, STATUS_YES
@@ -24,6 +24,14 @@ _STATUS_CLASS = {
     STATUS_YES: "yes",
     STATUS_NO: "no",
     STATUS_UNKNOWN: "todo",
+}
+_INDEX_TAB_CLASS = {
+    "animate": "index-tab-animate",
+    "melonbooks": "index-tab-melon",
+    "gamers": "index-tab-gamers",
+    "kinokuniya": "index-tab-kinokuniya",
+    "kikuya": "index-tab-kikuya",
+    "kumazawa": "index-tab-kumazawa",
 }
 
 
@@ -82,6 +90,7 @@ def write_html(
     heading: str,
     *,
     month_panels: list[tuple[int, int, list[ComicReport]]] | None = None,
+    active_period: tuple[int, int] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not month_panels:
@@ -89,22 +98,31 @@ def write_html(
     tabs: list[str] = []
     panels: list[str] = []
     card_id = 0
-    start_year = month_panels[0][0]
-    first_counts: Counter = Counter()
-    first_total = 0
+    named_indexes = [
+        index
+        for index, (year, month, _) in enumerate(month_panels)
+        if year and month
+    ]
+    active_index = 0
+    if active_period and named_indexes:
+        for index, (year, month, _) in enumerate(month_panels):
+            if (year, month) == active_period:
+                active_index = index
+                break
+        else:
+            active_index = named_indexes[0]
+    active_counts: Counter = Counter()
+    active_total = 0
     all_reports: list[ComicReport] = []
     for index, (year, month, items) in enumerate(month_panels):
         all_reports.extend(items)
         counts = Counter(check.status for report in items for check in report.checks)
-        if index == 0:
-            first_counts = counts
-            first_total = len(items)
+        if index == active_index:
+            active_counts = counts
+            active_total = len(items)
         month_id = f"{year:04d}-{month:02d}" if year and month else f"panel-{index}"
         if year and month:
-            if index == 0 or year != start_year:
-                label = f"{year}年{month}月"
-            else:
-                label = f"{month}月"
+            label = format_year_month(year, month)
         else:
             label = "一覧"
         grouped = _group_by_publisher(items)
@@ -122,9 +140,10 @@ def write_html(
                 "</section>"
             )
         inner = "\n".join(sections) or '<p class="empty">該当する第1巻はありませんでした。</p>'
-        active = " is-active" if index == 0 else ""
-        hidden = "" if index == 0 else " hidden"
-        selected = "true" if index == 0 else "false"
+        is_active = index == active_index
+        active = " is-active" if is_active else ""
+        hidden = "" if is_active else " hidden"
+        selected = "true" if is_active else "false"
         panels.append(
             f'<div class="month-panel{active}" id="month-{html.escape(month_id, quote=True)}" '
             f'data-month="{html.escape(month_id, quote=True)}" data-total="{len(items)}" '
@@ -145,22 +164,26 @@ def write_html(
         else ""
     )
     body = "\n".join(panels)
-    index_links = " · ".join(
-        f"<a href='{html.escape(store.privilege_index_url)}' target='_blank' "
+    index_links = "".join(
+        f"<a class='index-tab {_INDEX_TAB_CLASS.get(store.store_id, '')}' "
+        f"data-store='{html.escape(store.store_id)}' "
+        f"href='{html.escape(store.privilege_index_url)}' target='_blank' "
         f"rel='noopener noreferrer'>{html.escape(store.name)}</a>"
         for store in STORES
         if store.privilege_index_url
     )
     named_months = [(y, m) for y, m, _ in month_panels if y and m]
     if len(named_months) > 1:
-        labels = "、".join(f"{y}年{m}月" for y, m in named_months)
+        labels = "、".join(format_year_month(y, m) for y, m in named_months)
+        ay, am, _ = month_panels[active_index]
+        current = format_year_month(ay, am) if ay and am else format_year_month(*named_months[0])
         summary = (
-            f"{labels}の第1巻を月タブで切り替えられます。"
+            f"{labels}の第1巻を月タブで切り替えられます。初期表示は{current}です。"
             "各月は出版社優先順 → 発売日順です。特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。"
         )
     else:
         summary = (
-            f"第1巻 {first_total} 作品。出版社優先順 → 発売日順です。"
+            f"第1巻 {active_total} 作品。出版社優先順 → 発売日順です。"
             "特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。"
         )
     path.write_text(
@@ -168,8 +191,8 @@ def write_html(
             heading,
             body,
             index_links,
-            first_total,
-            first_counts,
+            active_total,
+            active_counts,
             rakuten_credit=_uses_rakuten(all_reports),
             tabs_html=tabs_html,
             summary=summary,
@@ -393,17 +416,18 @@ def _html_document(
       margin: 16px 0 4px;
     }}
     .month-tab {{
-      min-width: 4.5em;
-      padding: 8px 16px;
+      min-width: 7.5em;
+      padding: 8px 12px;
       border: 0;
       border-radius: 999px;
       background: #fffaf3;
       color: var(--ink);
       font: inherit;
-      font-size: 0.92rem;
+      font-size: 0.84rem;
       font-weight: 800;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       cursor: pointer;
+      white-space: nowrap;
     }}
     .month-tab:hover {{
       background: #f3e6d6;
@@ -411,6 +435,66 @@ def _html_document(
     .month-tab.is-active {{
       background: var(--accent);
       color: #fff;
+    }}
+    .index-tabs {{
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 4px;
+    }}
+    .index-label {{
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-right: 4px;
+    }}
+    .index-tab {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 6.5em;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      white-space: nowrap;
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .index-tab:hover {{
+      transform: translateY(-2px);
+      filter: brightness(1.06);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.16);
+    }}
+    .index-tab-animate {{
+      background: #f5d000;
+      color: #0b3cc8;
+    }}
+    .index-tab-melon {{
+      background: #8bc34a;
+      color: #143308;
+    }}
+    .index-tab-gamers {{
+      background: #ff8a1a;
+      color: #3d1a00;
+    }}
+    /* 紀伊國屋書店: 藍色・白文字 */
+    .index-tab-kinokuniya,
+    .index-tab[data-store="kinokuniya"] {{
+      background: #123a6e;
+      color: #fff;
+    }}
+    /* 喜久屋書店: 薄い紫 */
+    .index-tab-kikuya,
+    .index-tab[data-store="kikuya"] {{
+      background: #e4c7f5;
+      color: #3a1a55;
+    }}
+    .index-tab-kumazawa {{
+      background: #cbb089;
+      color: #3d2c16;
     }}
     .month-panel[hidden] {{
       display: none !important;
@@ -932,7 +1016,10 @@ def _html_document(
       <b class="no" id="legend-no">通常/なし {counts.get(STATUS_NO, 0)}</b>
       <b class="todo" id="legend-todo">未確認 {counts.get(STATUS_UNKNOWN, 0)}</b>
     </p>
-    <p class="indexes">特典一覧: {index_links or "—"}</p>
+    <nav class="index-tabs" aria-label="特典一覧">
+      <span class="index-label">特典一覧</span>
+      {index_links or "—"}
+    </nav>
     {tabs_html}
     <div class="search-bar">
       <div class="search-cluster">

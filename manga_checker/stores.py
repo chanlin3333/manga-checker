@@ -25,6 +25,8 @@ from manga_checker.toranoana import evaluate_toranoana_detail, first_toranoana_d
 # 公式一覧を正とし、未掲載なら「通常/なし」にする店
 STRICT_OFFICIAL_STORES = frozenset({"kumazawa", "kikuya"})
 DETAIL_PAGE_STORES = frozenset({"animate", "melonbooks", "toranoana"})
+# 検索結果ページを常に取得し、ヒット済みなら特典語なしを「通常/なし」にする店
+LISTING_FETCH_STORES = frozenset({"gamers", "kinokuniya"})
 
 
 @dataclass
@@ -113,7 +115,7 @@ STORES: list[Store] = [
         store_id="animate",
         name="アニメイト",
         search_url=_animate_url,
-        privilege_index_url="https://www.animate-onlineshop.jp/special/privilege/",
+        privilege_index_url="https://www.animate-onlineshop.jp/products/privilege_list.php",
     ),
     Store(
         store_id="melonbooks",
@@ -190,7 +192,7 @@ def check_stores(
                 StoreCheck(store.store_id, store.name, official_yes, detail, url)
             )
             continue
-        if store.store_id in DETAIL_PAGE_STORES:
+        if store.store_id in DETAIL_PAGE_STORES or store.store_id in LISTING_FETCH_STORES:
             results.append(_fetch_store(store, comic, url, session))
             time.sleep(delay_sec)
             continue

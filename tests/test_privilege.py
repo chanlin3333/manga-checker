@@ -177,6 +177,34 @@ class PrivilegeEvalTests(unittest.TestCase):
         )
         self.assertEqual(status, STATUS_UNKNOWN)
 
+    def test_ten_hits_without_privilege_is_no_not_unknown(self) -> None:
+        html = """
+        <p>検索結果 10件</p>
+        <ul class="item_list">
+          <li class="item"><p class="item_name">初凪ヒメリウム</p><span>在庫あり 770円</span></li>
+        </ul>
+        """
+        status, detail = evaluate_privilege(
+            html,
+            title_for_match="初凪ヒメリウム",
+            source_url="https://www.gamers.co.jp/products/list.php",
+        )
+        self.assertEqual(status, STATUS_NO, detail)
+
+    def test_kinokuniya_product_without_privilege_is_no(self) -> None:
+        html = """
+        <p>検索結果 20件</p>
+        <h1>初凪ヒメリウム 1</h1>
+        <p>在庫あり</p>
+        """
+        status, detail = evaluate_privilege(
+            html,
+            title_for_match="初凪ヒメリウム",
+            source_url="https://www.kinokuniya.co.jp/f/dsg-01-9784000000000",
+            store_id="kinokuniya",
+        )
+        self.assertEqual(status, STATUS_NO, detail)
+
     def test_short_title_ignores_different_work(self) -> None:
         html = """
         <ul class="item_list">
@@ -302,6 +330,73 @@ class MelonDetailTests(unittest.TestCase):
 
         html = "<h1>初凪ヒメリウム</h1><p>在庫あり 726円</p>"
         status, _ = evaluate_melon_detail(html)
+        self.assertEqual(status, STATUS_NO)
+
+    def test_detail_ignores_related_label_works(self) -> None:
+        from manga_checker.melon import evaluate_melon_detail
+
+        html = """
+        <div id="contents">
+          <div class="item_detail">
+            <h1>息子の彼女 1</h1>
+            <table class="spec">
+              <tr><th>仕様</th><td>B6判</td></tr>
+            </table>
+            <p>在庫あり 726円</p>
+          </div>
+          <div class="recommend" id="related">
+            <h2>このレーベルの他の作品</h2>
+            <div class="carousel">
+              <a href="/detail/detail.php?product_id=999">だれでも抱けるキミが好き
+              描き下ろしイラストカード</a>
+            </div>
+          </div>
+        </div>
+        """
+        status, _ = evaluate_melon_detail(html)
+        self.assertEqual(status, STATUS_NO)
+
+    def test_detail_ignores_related_heading_without_class(self) -> None:
+        from manga_checker.melon import evaluate_melon_detail
+
+        html = """
+        <div class="item_detail">
+          <h1>息子の彼女 1</h1>
+          <p>在庫あり</p>
+          <h2>このレーベルの他の作品</h2>
+          <div class="item">だれでも抱けるキミが好き 描き下ろしイラストカード</div>
+        </div>
+        """
+        status, _ = evaluate_melon_detail(html)
+        self.assertEqual(status, STATUS_NO)
+
+    def test_detail_ignores_ended_and_chrome_header(self) -> None:
+        from manga_checker.melon import evaluate_melon_detail
+
+        html = """
+        <header><a href="/products/privilege_list.php">限定版・特典</a></header>
+        <nav>特典取り扱いについて</nav>
+        <h1>初凪ヒメリウム</h1>
+        <div class="privilege"><h2>特典情報</h2><p>※特典は終了しました</p></div>
+        <p>在庫あり 726円</p>
+        """
+        status, _ = evaluate_melon_detail(html)
+        self.assertEqual(status, STATUS_NO)
+
+    def test_listing_ignores_generic_tokuten_word(self) -> None:
+        html = """
+        <div class="item_list">
+          <div class="item">
+            <p class="title">初凪ヒメリウム</p>
+            <p>※特典は終了しました。限定版・特典の案内はヘッダーから</p>
+          </div>
+        </div>
+        """
+        status, _ = evaluate_privilege(
+            html,
+            title_for_match="初凪ヒメリウム",
+            source_url="https://www.melonbooks.co.jp/search/search.php",
+        )
         self.assertEqual(status, STATUS_NO)
 
 

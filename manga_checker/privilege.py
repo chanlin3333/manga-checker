@@ -34,15 +34,12 @@ _STRONG_PRIVILEGE = [
     re.compile(r"イラストカード"),
     re.compile(r"リーフレット"),
     re.compile(r"描き下ろし"),
-    re.compile(r"限定版"),
     re.compile(r"ブロマイド"),
     re.compile(r"G特典"),
     re.compile(r"icon_present", re.IGNORECASE),
     re.compile(r"icon_tokuten", re.IGNORECASE),
     re.compile(r"アクリルスタンド"),
-    re.compile(r"アクリル"),
     re.compile(r"メロン限定"),
-    re.compile(r"特典(?!なし|無し|配布終了|取り扱い|はお付けできません)"),
 ]
 
 _NEGATIONS = [
@@ -50,18 +47,49 @@ _NEGATIONS = [
     re.compile(r"特典無し"),
     re.compile(r"特典配布終了"),
     re.compile(r"【特典なし】"),
+    re.compile(r"特典は終了"),
+    re.compile(r"特典終了"),
+    re.compile(r"特典はございません"),
+    re.compile(r"特典はありません"),
+    re.compile(r"特典情報はありません"),
+    re.compile(r"特典はお付けできません"),
 ]
 
-_NO_HIT = ("該当する商品はございません", "0件", "見つかりませんでした", "検索結果はありません")
+_ENDED_PRIVILEGE = re.compile(
+    r"特典.{0,12}(なし|無し|終了|ございません|ありません|お付けできません)|"
+    r"(なし|無し|終了).{0,8}特典|"
+    r"配布終了"
+)
 
-_MELON_WORDS = (
+_NO_HIT_PHRASES = (
+    "該当する商品はございません",
+    "見つかりませんでした",
+    "検索結果はありません",
+    "該当する商品は見つかりませんでした",
+    "お探しの商品は見つかりません",
+)
+_ZERO_HIT = re.compile(
+    r"(検索結果|該当|ヒット)[^\d]{0,12}0\s*件|(?<![\d０-９])0\s*件(?!\d)|件数[：:\s]*0(?:件)?"
+)
+
+_MELON_CONCRETE = (
     "メロン限定版",
-    "限定版",
+    "メロンブックス限定",
+    "メロンブックス特典",
+    "メロン限定",
+    "描き下ろしイラストカード",
+    "イラストカード",
     "描き下ろし",
     "リーフレット",
-    "アクリル",
+    "アクリルスタンド",
     "有償特典",
-    "特典",
+    "特典ペーパー",
+    "特典付き",
+    "特典付",
+    "購入特典",
+    "店舗特典",
+    "特典（",
+    "【特典",
 )
 
 _KINO_YES = re.compile(r"特典|限定|ペーパー|イラストカード")
@@ -113,8 +141,12 @@ def evaluate_privilege(
     hits: list[str] = []
     negated = False
     for card in cards:
+        if _privilege_ended(card):
+            negated = True
+            continue
         if _is_negated(card):
             negated = True
+            continue
         hits.extend(privilege_keywords_in(card))
     hits = list(dict.fromkeys(hits))
     if hits:
@@ -156,9 +188,10 @@ def _evaluate_melonbooks(
 
     hits: list[str] = []
     for card in cards:
-        for word in _MELON_WORDS:
-            if word in card and word not in hits:
-                hits.append(word)
+        if _privilege_ended(card):
+            continue
+        hits.extend(_melon_concrete_hits(card))
+    hits = list(dict.fromkeys(hits))
     if hits:
         return STATUS_YES, "商品カードテキストで検出: " + " / ".join(hits[:4])
     return STATUS_NO, "該当商品カードに特典文言はありません。"
@@ -209,9 +242,21 @@ def _kinokuniya_product_titles(
     return headings
 
 
+def _melon_concrete_hits(text: str) -> list[str]:
+    hits: list[str] = []
+    for word in _MELON_CONCRETE:
+        if word in text and word not in hits:
+            hits.append(word)
+    return hits
+
+
+def _privilege_ended(text: str) -> bool:
+    return bool(_ENDED_PRIVILEGE.search(text or ""))
+
+
 def _looks_like_no_hit(html: str, title: str, isbn: str) -> bool:
-    text = re.sub(r"\s+", " ", html)
-    has_marker = any(marker in text for marker in _NO_HIT)
+    text = re.sub(r"\s+", " ", html or "")
+    has_marker = any(marker in text for marker in _NO_HIT_PHRASES) or bool(_ZERO_HIT.search(text))
     has_work = (title and title in text) or (isbn and isbn in text)
     return has_marker and not has_work
 

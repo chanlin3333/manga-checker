@@ -109,6 +109,19 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn("position: fixed", html)
         self.assertIn("behavior: \"smooth\"", html)
         self.assertNotIn("TSUTAYA", html)
+        self.assertIn('class="index-tabs"', html)
+        self.assertIn("index-tab-animate", html)
+        self.assertIn("index-tab-melon", html)
+        self.assertIn("index-tab-kikuya", html)
+        self.assertIn("index-tab-kinokuniya", html)
+        self.assertIn("data-store='kikuya'", html)
+        self.assertIn("data-store='kinokuniya'", html)
+        self.assertIn("background: #e4c7f5", html)
+        self.assertIn("background: #123a6e", html)
+        self.assertRegex(html, r"index-tab-kikuya'[^>]*>喜久屋書店")
+        self.assertRegex(html, r"index-tab-kinokuniya'[^>]*>紀伊國屋書店")
+        self.assertIn("privilege_list.php", html)
+        self.assertNotIn("/special/privilege", html)
         self.assertGreater(html.find('id="pager"'), html.find('class="ad-container ad-footer"'))
         self.assertGreater(html.find('class="ad-container ad-footer"'), html.find("</main>"))
 
@@ -185,7 +198,8 @@ class HtmlSearchTests(unittest.TestCase):
             )
             html = path.read_text(encoding="utf-8")
         self.assertIn("2026年9月", html)
-        self.assertIn(">10月<", html)
+        self.assertIn("2026年10月", html)
+        self.assertNotIn(">10月<", html)
         self.assertIn('class="month-tabs"', html)
         self.assertIn('data-month="2026-09"', html)
         self.assertIn('data-month="2026-10"', html)
@@ -194,6 +208,45 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn("switchMonth", html)
         self.assertIn("monthState", html)
         self.assertLess(html.find("month-tabs"), html.find("comic-search"))
+        self.assertIn('data-month="2026-09" aria-selected="true"', html)
+        self.assertIn("初期表示は2026年9月です。", html)
+
+    def test_month_tabs_always_include_year_and_open_on_current(self) -> None:
+        panels = []
+        for year, month in [
+            (2026, 11),
+            (2026, 12),
+            (2027, 1),
+            (2027, 2),
+        ]:
+            reports = [
+                ComicReport(
+                    Comic(title=f"{year}-{month} 1", publisher="集英社", pubdate=f"{year}-{month:02d}-04"),
+                    period_year=year,
+                    period_month=month,
+                )
+            ]
+            panels.append((year, month, reports))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "out.html"
+            write_html(
+                [item for _, _, items in panels for item in items],
+                path,
+                "test",
+                month_panels=panels,
+                active_period=(2027, 1),
+            )
+            html = path.read_text(encoding="utf-8")
+        self.assertIn(">2026年11月<", html)
+        self.assertIn(">2026年12月<", html)
+        self.assertIn(">2027年1月<", html)
+        self.assertIn(">2027年2月<", html)
+        self.assertIn("2026年11月、2026年12月、2027年1月、2027年2月", html)
+        self.assertIn("初期表示は2027年1月です。", html)
+        self.assertIn('class="month-panel is-active" id="month-2027-01"', html)
+        self.assertIn('class="month-tab is-active" role="tab" data-month="2027-01"', html)
+        self.assertNotIn(">1月<", html)
+        self.assertNotIn(">12月<", html)
 
     def test_kana_case_width_fold_matches(self) -> None:
         def fold(s: str) -> str:

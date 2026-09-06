@@ -122,7 +122,7 @@ def fetch_months_volume_ones(
     extra_csv: Path | None = None,
     session: requests.Session | None = None,
 ) -> dict[tuple[int, int], list[Comic]]:
-    """対象の複数月を、楽天走査は1回だけ行って月別に返す。"""
+    """対象の複数月を、楽天走査は1回（必要なら在庫補完をさらに1回）行って月別に返す。"""
     if not months:
         return {}
     session = session or make_session()

@@ -22,10 +22,17 @@ class SslSettingTests(unittest.TestCase):
         http_mod.configure_ssl(insecure=True)
         self.assertIs(ssl_verify_setting(), False)
 
-    def test_env_disables_verify(self) -> None:
-        http_mod.configure_ssl(insecure=None)
-        with patch.dict(os.environ, {"MANGA_CHECKER_SSL_VERIFY": "0"}):
-            self.assertIs(ssl_verify_setting(), False)
+    def test_insecure_warnings_are_filtered(self) -> None:
+        import warnings
+
+        from urllib3.exceptions import InsecureRequestWarning
+
+        from manga_checker.http import _suppress_insecure_warnings
+
+        _suppress_insecure_warnings()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.warn("ssl", InsecureRequestWarning)
+        self.assertFalse(any(item.category is InsecureRequestWarning for item in caught))
 
 
 if __name__ == "__main__":

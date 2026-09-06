@@ -33,6 +33,21 @@ def configure_ssl(*, insecure: bool | None = None) -> None:
     """main.py の --insecure から呼び出す。"""
     global _insecure_override
     _insecure_override = insecure
+    _suppress_insecure_warnings()
+
+
+def _suppress_insecure_warnings() -> None:
+    warnings.filterwarnings("ignore", category=InsecureRequestWarning)
+    try:
+        import urllib3
+
+        urllib3.disable_warnings(InsecureRequestWarning)
+    except Exception:
+        pass
+    try:
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    except Exception:
+        pass
 
 
 def ssl_verify_setting() -> bool | str:
@@ -83,9 +98,8 @@ class _SslFallbackAdapter(HTTPAdapter):
 
 
 def make_session(*, extra_headers: dict[str, str] | None = None) -> requests.Session:
+    _suppress_insecure_warnings()
     verify = ssl_verify_setting()
-    if verify is False:
-        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
     session = requests.Session()
     session.verify = verify

@@ -12,17 +12,67 @@ from manga_checker.title_match import listing_matches_work
 
 _DETAIL_HREF = re.compile(r"detail\.php", re.I)
 _PRODUCT_ID = re.compile(r"product_id=(\d+)", re.I)
-_DETAIL_HITS = (
-    "特典情報",
+_BOX_CONCRETE = (
     "メロンブックス特典",
-    "メロンブックス限定版",
+    "メロンブックス限定",
     "メロン限定版",
+    "メロン限定",
     "描き下ろしイラストカード",
     "イラストカード",
     "描き下ろし",
     "リーフレット",
+    "特典ペーパー",
+    "有償特典",
+    "アクリルスタンド",
+    "ブロマイド",
+    "購入特典",
+    "店舗特典",
+    "特典付き",
+    "特典付",
+    "特典（",
+    "【特典",
 )
-_NONE = re.compile(r"特典は?[な無]し|特典はありません|特典情報はありません")
+_PAGE_CONCRETE = (
+    "メロンブックス特典",
+    "メロンブックス限定",
+    "メロン限定版",
+    "メロン限定",
+    "描き下ろしイラストカード",
+    "有償特典",
+    "購入特典",
+    "店舗特典",
+    "特典ペーパー",
+    "特典付き",
+    "特典付",
+    "特典（",
+    "【特典",
+)
+_ENDED = re.compile(
+    r"特典.{0,12}(なし|無し|終了|ございません|ありません|お付けできません)|"
+    r"(なし|無し|終了).{0,8}特典|"
+    r"配布終了"
+)
+_RELATED_ATTR = re.compile(
+    r"(recommend|related|relation|carousel|other[_-]?item|also[_-]?buy)",
+    re.I,
+)
+_RELATED_HEADING = re.compile(
+    r"このレーベルの他の作品|この作家の他の作品|この作者の他の作品|"
+    r"関連商品|おすすめ商品|おすすめの商品|一緒に購入|"
+    r"最近チェック|閲覧履歴|他のお客様"
+)
+_MAIN_SELECTORS = (
+    ".item_detail",
+    "#item_detail",
+    ".item-detail",
+    "#item",
+    ".product_detail",
+    ".product-detail",
+    ".detail_data",
+    "#detail",
+    "#contents",
+)
+_MAIN_WRAPPER_IDS = frozenset({"contents", "item", "item_detail", "detail", "wrapper"})
 
 
 def first_melon_detail_url(
@@ -61,34 +111,94 @@ def evaluate_melon_detail(html: str) -> tuple[str, str]:
     if not html:
         return STATUS_UNKNOWN, "詳細ページを取得できませんでした。"
     soup = BeautifulSoup(html, "html.parser")
+    for tag in soup.find_all(("header", "footer", "nav", "aside")):
+        tag.decompose()
+    _decompose_related(soup)
+    root = _main_product_root(soup)
     blocks: list[str] = []
-    for node in soup.select(
+    for node in root.select(
         ".privilege, .privilege_box, [class*='privilege'], [id*='privilege'], "
         ".tokuten_box, [class*='tokuten'], [id*='tokuten']"
     ):
         text = node.get_text(" ", strip=True)
         if text:
             blocks.append(text)
-    heading = soup.find(string=re.compile(r"特典情報|店舗特典|購入特典"))
+    heading = root.find(string=re.compile(r"特典情報|店舗特典|購入特典"))
     if heading:
-        parent = heading.find_parent(["div", "section", "table", "dl", "li", "td"]) or heading.parent
-        if parent:
+        parent = heading.find_parent(["div", "section", "table", "dl", "li", "td"])
+        if parent and parent.name not in {"body", "html"}:
             text = parent.get_text(" ", strip=True)
-            if text:
+            if text and len(text) <= 2500:
                 blocks.append(text)
-    combined = " ".join(blocks)
-    scope = combined or soup.get_text(" ", strip=True)
-    if combined and _NONE.search(combined) and not any(
-        word in combined for word in _DETAIL_HITS if word not in {"特典情報"}
-    ):
+    for spec in root.select("table, .item_spec, .spec, dl"):
+        text = spec.get_text(" ", strip=True)
+        if text and ("特典" in text or "限定" in text) and len(text) <= 4000:
+            blocks.append(text)
+    combined = " ".join(dict.fromkeys(blocks))
+    if combined and _ENDED.search(combined) and not _concrete_hits(combined, _BOX_CONCRETE):
         return STATUS_NO, "詳細ページに特典情報はありません。"
-    for word in _DETAIL_HITS:
-        if word in scope:
-            snippet = _snippet(scope, word)
-            return STATUS_YES, f"詳細ページで検出: {snippet}"
-    if combined and "特典" in combined and not _NONE.search(combined):
-        return STATUS_YES, "詳細ページの特典情報エリアを検出"
+    hits = _concrete_hits(combined, _BOX_CONCRETE)
+    if hits:
+        snippet = _snippet(combined, hits[0])
+        return STATUS_YES, f"詳細ページで検出: {snippet}"
+    body = root.get_text(" ", strip=True)
+    if _ENDED.search(body) and not _concrete_hits(body, _PAGE_CONCRETE):
+        return STATUS_NO, "詳細ページに特典情報はありません。"
+    body_hits = _concrete_hits(body, _PAGE_CONCRETE)
+    if body_hits:
+        snippet = _snippet(body, body_hits[0])
+        return STATUS_YES, f"詳細ページで検出: {snippet}"
     return STATUS_NO, "詳細ページに特典情報はありません。"
+
+
+def _decompose_related(soup: BeautifulSoup) -> None:
+    to_drop = []
+    for tag in soup.find_all(True):
+        cid = f"{tag.get('id') or ''} {' '.join(tag.get('class') or [])}"
+        if _RELATED_ATTR.search(cid):
+            to_drop.append(tag)
+    for tag in to_drop:
+        if tag.parent is not None:
+            tag.decompose()
+    for node in list(soup.find_all(string=_RELATED_HEADING)):
+        heading = node.parent
+        if heading is None or getattr(heading, "name", None) in {"body", "html", "[document]"}:
+            continue
+        for sib in list(heading.find_next_siblings()):
+            if getattr(sib, "name", None) in {"h1", "h2"}:
+                break
+            sib.decompose()
+        box = heading.find_parent(["section", "aside", "ul", "div"])
+        if box is not None and not _is_main_wrapper(box) and box.find(string=_RELATED_HEADING):
+            box.decompose()
+        elif heading.name not in {"body", "html"}:
+            heading.decompose()
+
+
+def _is_main_wrapper(tag) -> bool:
+    if tag is None or tag.name in {"body", "html", "[document]"}:
+        return True
+    tid = str(tag.get("id") or "").lower()
+    tclass = " ".join(tag.get("class") or []).lower()
+    if tid in _MAIN_WRAPPER_IDS:
+        return True
+    return "item_detail" in tclass or "item-detail" in tclass or "product_detail" in tclass
+
+
+def _main_product_root(soup: BeautifulSoup):
+    for selector in _MAIN_SELECTORS:
+        node = soup.select_one(selector)
+        if node is not None:
+            return node
+    return soup
+
+
+def _concrete_hits(text: str, words: tuple[str, ...] = _BOX_CONCRETE) -> list[str]:
+    hits: list[str] = []
+    for word in words:
+        if word in text and word not in hits:
+            hits.append(word)
+    return hits
 
 
 def _melon_detail_url(href: str, base: str) -> str:

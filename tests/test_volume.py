@@ -35,6 +35,10 @@ class VolumeOneTests(unittest.TestCase):
         self.assertFalse(is_volume_one("進撃の巨人 21巻"))
         self.assertFalse(is_volume_one("1日10分でわかる世界史"))
         self.assertFalse(is_volume_one("あおのたつき", "20"))
+        self.assertFalse(is_volume_one("TYPE-1 ガイド"))
+        self.assertFalse(is_volume_one("The 1st Battle"))
+        self.assertFalse(is_volume_one("進撃の巨人 10巻"))
+        self.assertFalse(is_volume_one("進撃の巨人 12巻"))
 
 
 if __name__ == "__main__":

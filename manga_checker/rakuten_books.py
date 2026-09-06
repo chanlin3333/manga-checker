@@ -48,7 +48,12 @@ def fetch_rakuten_volume_ones_by_month(
     delay_sec: float = 0.85,
     max_items: int = 0,
 ) -> dict[tuple[int, int], list[Comic]]:
-    """発売日降順のジャンル走査を1回だけ行い、対象各月の第1巻を返す。"""
+    """発売日降順のジャンル走査を1回行い、第1巻を各月へ振り分ける。
+
+    Books API に発売日範囲パラメータはない。100ページ上限で対象期間の先頭まで
+    遡れないときだけ、予約（遠い発売日）を除いた在庫商品を同じく1回走査して補完する。
+    出版社別ループや、月ごとに新しい順を最初からやり直す走査は行わない。
+    """
     del max_items
     if not months:
         return {}
@@ -60,18 +65,41 @@ def fetch_rakuten_volume_ones_by_month(
     print(
         f"楽天ブックス: コミックジャンル {COMIC_GENRE_ID} を発売日の新しい順で1回走査します。"
         f"（{start[0]}年{start[1]}月〜{end[0]}年{end[1]}月。"
-        f"1ページ最大{RAKUTEN_HITS_PER_PAGE}件はAPI仕様）"
+        f"1ページ最大{RAKUTEN_HITS_PER_PAGE}件 / 最大{RAKUTEN_MAX_PAGES}ページ。"
+        f"対象期間より前の発売日に達した時点で終了）"
     )
-    buckets = _paginate_window(
+    buckets, reached_older, hit_page_cap = _paginate_window(
         session,
         months,
         delay_sec,
         extra={"booksGenreId": COMIC_GENRE_ID},
         max_pages=RAKUTEN_MAX_PAGES,
     )
+    if hit_page_cap and not reached_older:
+        missing = [key for key in months if not buckets.get(key)]
+        if missing:
+            miss_start, miss_end = min(missing), max(missing)
+            print(
+                f"楽天ブックス: {RAKUTEN_MAX_PAGES}ページ上限のため "
+                f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
+                "に届いていません。予約を除く在庫商品（availability=1）を1回走査して補完します。"
+            )
+            extra_buckets, _, _ = _paginate_window(
+                session,
+                missing,
+                delay_sec,
+                extra={"booksGenreId": COMIC_GENRE_ID, "availability": "1"},
+                max_pages=RAKUTEN_MAX_PAGES,
+            )
+            for key in missing:
+                buckets[key].extend(extra_buckets.get(key, []))
     result: dict[tuple[int, int], list[Comic]] = {}
     for year, month in months:
-        volume_ones = [c for c in buckets.get((year, month), []) if is_volume_one(c.title, c.volume)]
+        volume_ones = [
+            comic
+            for comic in buckets.get((year, month), [])
+            if is_volume_one(comic.title, comic.volume)
+        ]
         volume_ones = _dedupe_comics(volume_ones)
         volume_ones.sort(
             key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title)
@@ -136,6 +164,25 @@ def sales_year_month(sales_date: str) -> tuple[int, int] | None:
         year, month = int(digits[:4]), int(digits[4:6])
         if 1 <= month <= 12:
             return year, month
+    return None
+
+
+def _usable_year_month(sales_date: str) -> tuple[int, int] | None:
+    """3099年などのプレースホルダ発売日は走査終了判定・月振り分けに使わない。"""
+    ym = sales_year_month(sales_date)
+    if ym is None:
+        return None
+    year, _month = ym
+    if year < 1990 or year >= 2100:
+        return None
+    return ym
+
+
+def _first_usable_year_month(items: list[dict]) -> tuple[int, int] | None:
+    for item in items:
+        ym = _usable_year_month(str(item.get("salesDate") or ""))
+        if ym:
+            return ym
     return None
 
 
@@ -206,7 +253,7 @@ def _paginate_month(
 ) -> list[Comic]:
     """発売日の新しい順に走査し、対象月の書誌を返す。"""
     del collected, max_items, stop_if
-    buckets = _paginate_window(
+    buckets, _, _ = _paginate_window(
         session,
         [(year, month)],
         delay_sec,
@@ -224,18 +271,25 @@ def _paginate_window(
     extra: dict[str, str],
     stop_on_older: bool = True,
     max_pages: int = 100,
-) -> dict[tuple[int, int], list[Comic]]:
-    """発売日降順を1回走査し、対象期間の各月へ振り分ける。開始月より前で終了。"""
+) -> tuple[dict[tuple[int, int], list[Comic]], bool, bool]:
+    """発売日降順を走査し、対象期間の各月へ振り分ける。
+
+    Returns:
+        buckets, reached_older (対象開始月より前のページに到達), hit_page_cap (APIページ上限)
+    """
     month_set = set(months)
     start_bound = min(months)
     end_bound = max(months)
     unparsed_key = months[0]
     buckets: dict[tuple[int, int], list[Comic]] = {key: [] for key in months}
     consecutive_empty = 0
+    reached_older = False
+    last_page = 0
     for page in range(1, max_pages + 1):
         payload = _request(session, {**extra, "page": str(page)})
         items = _items(payload)
         page_count = _page_count(payload)
+        last_page = page
         if not items:
             consecutive_empty += 1
             print(
@@ -248,8 +302,9 @@ def _paginate_window(
             continue
         consecutive_empty = 0
         sample = str(items[0].get("salesDate") or "")
-        first_ym = sales_year_month(sample)
+        first_ym = _first_usable_year_month(items)
         if stop_on_older and first_ym and first_ym < start_bound:
+            reached_older = True
             print(
                 f"楽天ブックス取得中: ページ {page}/{page_count} "
                 f"(先頭salesDate={sample} が対象期間より前のため走査終了)"
@@ -258,7 +313,10 @@ def _paginate_window(
         added_by_month: dict[tuple[int, int], int] = {key: 0 for key in months}
         for item in items:
             sales = str(item.get("salesDate") or "")
-            ym = sales_year_month(sales)
+            parsed = sales_year_month(sales)
+            if parsed is not None and _usable_year_month(sales) is None:
+                continue
+            ym = _usable_year_month(sales)
             if ym is None:
                 target = unparsed_key if sales_in_month(sales, *unparsed_key) else None
             elif ym in month_set:
@@ -286,7 +344,8 @@ def _paginate_window(
                 print("  ※ pageCount 上限に達しましたが、まだ対象期間より新しい発売日です。")
             break
         time.sleep(delay_sec)
-    return buckets
+    hit_page_cap = last_page >= max_pages and not reached_older
+    return buckets, reached_older, hit_page_cap
 
 
 def _page_count(payload: dict) -> int:

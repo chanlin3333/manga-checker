@@ -79,18 +79,43 @@ def parse_release_date(raw: str) -> date | None:
     return None
 
 
+def format_year_month(year: int, month: int) -> str:
+    """タブ・説明文用の「2026年10月」形式（月はゼロ埋めしない）。"""
+    return f"{year}年{month}月"
+
+
+def add_months(year: int, month: int, delta: int) -> tuple[int, int]:
+    """年月に delta ヶ月を加算する（負数可、年またぎ可）。"""
+    if not 1 <= month <= 12:
+        raise ValueError("month は 1〜12 です。")
+    index = year * 12 + (month - 1) + delta
+    y, m0 = divmod(index, 12)
+    return y, m0 + 1
+
+
 def iter_months(year: int, month: int, count: int = 4) -> list[tuple[int, int]]:
     """year/month から連続する count ヶ月（年またぎ可）。"""
     if count < 1:
         raise ValueError("count は 1 以上にしてください。")
     if not 1 <= month <= 12:
         raise ValueError("month は 1〜12 です。")
-    y, m = year, month
-    months: list[tuple[int, int]] = []
-    for _ in range(count):
-        months.append((y, m))
-        m += 1
-        if m > 12:
-            m = 1
-            y += 1
-    return months
+    return [add_months(year, month, i) for i in range(count)]
+
+
+def iter_month_offsets(
+    year: int | None = None,
+    month: int | None = None,
+    *,
+    before: int = 3,
+    after: int = 3,
+    today: date | None = None,
+) -> list[tuple[int, int]]:
+    """基準月の before ヶ月前から after ヶ月後まで（既定は -3〜+3 の7ヶ月）。"""
+    if before < 0 or after < 0:
+        raise ValueError("before / after は 0 以上にしてください。")
+    today = today or date.today()
+    y = today.year if year is None else year
+    m = today.month if month is None else month
+    if not 1 <= m <= 12:
+        raise ValueError("month は 1〜12 です。")
+    return [add_months(y, m, offset) for offset in range(-before, after + 1)]

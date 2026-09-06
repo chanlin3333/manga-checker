@@ -23,6 +23,11 @@ class StoreListTests(unittest.TestCase):
         self.assertNotIn("TSUTAYA", names)
         self.assertNotIn("tsutaya", [store.store_id for store in STORES])
 
+    def test_animate_privilege_index_is_privilege_list(self) -> None:
+        animate = next(store for store in STORES if store.store_id == "animate")
+        self.assertIn("privilege_list.php", animate.privilege_index_url)
+        self.assertNotIn("/special/privilege", animate.privilege_index_url)
+
     def test_search_urls_point_to_catalogs(self) -> None:
         comic = Comic(title="初凪ヒメリウム", isbn="9784000000000")
         by_id = {store.store_id: store.search_url(comic) for store in STORES}
@@ -244,6 +249,8 @@ class DetailFetchTests(unittest.TestCase):
         self.assertEqual(by_id["animate"].status, STATUS_YES)
         self.assertIn("product_id=333", by_id["melonbooks"].url)
         self.assertEqual(by_id["melonbooks"].status, STATUS_YES)
+        self.assertEqual(by_id["gamers"].status, STATUS_NO)
+        self.assertEqual(by_id["kinokuniya"].status, STATUS_NO)
 
     def test_toranoana_uses_item_url_and_privilege(self) -> None:
         comic = Comic(title="ヒトナー 1", isbn="9784088852317")

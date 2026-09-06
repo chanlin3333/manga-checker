@@ -243,7 +243,7 @@ class PaginateLimitTests(unittest.TestCase):
 
         months = [(2026, 9), (2026, 10), (2026, 11), (2026, 12)]
         with patch("manga_checker.rakuten_books._request", side_effect=fake_request):
-            buckets = _paginate_window(
+            buckets, reached_older, hit_cap = _paginate_window(
                 None,
                 months,
                 0,
@@ -255,6 +255,8 @@ class PaginateLimitTests(unittest.TestCase):
         self.assertEqual([c.title for c in buckets[(2026, 10)]], ["十月の本 (1)"])
         self.assertEqual([c.title for c in buckets[(2026, 9)]], ["九月の本 (1)"])
         self.assertEqual(calls["n"], 5)
+        self.assertTrue(reached_older)
+        self.assertFalse(hit_cap)
 
         with patch("manga_checker.rakuten_books.rakuten_configured", return_value=True), patch(
             "manga_checker.rakuten_books._request", side_effect=fake_request
@@ -263,6 +265,7 @@ class PaginateLimitTests(unittest.TestCase):
             result = fetch_rakuten_volume_ones_by_month(months, session=None, delay_sec=0)
         self.assertEqual(calls["n"], 5)
         self.assertTrue(any(c.title == "十月の本 (1)" for c in result[(2026, 10)]))
+        self.assertTrue(any(c.title == "九月の本 (1)" for c in result[(2026, 9)]))
         self.assertFalse(any(c.title == "八月の本 (1)" for c in result[(2026, 9)]))
 
     def test_stops_immediately_when_first_item_is_before_target_month(self) -> None:
@@ -443,3 +446,56 @@ class PaginateLimitTests(unittest.TestCase):
             result = fetch_rakuten_volume_ones(2026, 9, session=None, delay_sec=0)
         publishers = [c.publisher for c in result]
         self.assertEqual(publishers, ["集英社", "TOブックス"])
+
+    def test_past_month_uses_instock_scan_when_genre_hits_page_cap(self) -> None:
+        extras: list[dict[str, str]] = []
+
+        def fake_request(_session, extra):
+            extras.append(dict(extra))
+            if extra.get("availability") == "1":
+                page = int(extra["page"])
+                if page == 1:
+                    sales, title = "2026年06月10日", "六月の本 (1)"
+                else:
+                    sales, title = "2026年05月01日", "五月の本 (1)"
+                return {
+                    "pageCount": 2,
+                    "Items": [
+                        {
+                            "title": title,
+                            "publisherName": "集英社",
+                            "salesDate": sales,
+                            "isbn": f"97840{page:08d}",
+                        }
+                    ],
+                }
+            page = int(extra["page"])
+            return {
+                "pageCount": 100,
+                "Items": [
+                    {
+                        "title": f"予約 {page} (1)",
+                        "publisherName": "集英社",
+                        "salesDate": "3099年01月01日",
+                        "isbn": f"97841{page:08d}",
+                    }
+                ],
+            }
+
+        with patch("manga_checker.rakuten_books.rakuten_configured", return_value=True), patch(
+            "manga_checker.rakuten_books._request", side_effect=fake_request
+        ):
+            result = fetch_rakuten_volume_ones_by_month(
+                [(2026, 6)], session=None, delay_sec=0
+            )
+        self.assertFalse(any(extra.get("publisherName") for extra in extras))
+        self.assertTrue(any(extra.get("availability") == "1" for extra in extras))
+        self.assertTrue(any("六月の本" in c.title for c in result[(2026, 6)]))
+        self.assertFalse(any("予約" in c.title for c in result[(2026, 6)]))
+        self.assertFalse(any("五月の本" in c.title for c in result[(2026, 6)]))
+        genre_pages = [
+            extra
+            for extra in extras
+            if extra.get("availability") != "1" and extra.get("booksGenreId") == COMIC_GENRE_ID
+        ]
+        self.assertEqual(len(genre_pages), 100)
