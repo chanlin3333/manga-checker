@@ -40,8 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--limit",
         type=int,
-        default=50,
-        help="各月の HTML/CSV に出力する件数。楽天APIの取得件数は制限しません。0 で全件出力",
+        default=0,
+        help="各月の HTML/CSV に出力する件数。0（デフォルト）で全件。確認用に件数を絞るときだけ指定",
     )
     parser.add_argument(
         "--csv-in",
@@ -129,6 +129,7 @@ def main() -> None:
         heading = "コミック第1巻 書店特典チェック"
     csv_path = args.out_dir / "volume1_privileges.csv"
     html_path = args.out_dir / "volume1_privileges.html"
+    index_path = Path("index.html")
     write_csv(all_reports, csv_path)
     write_html(
         all_reports,
@@ -137,10 +138,13 @@ def main() -> None:
         month_panels=month_panels,
         active_period=active_period,
     )
+    if html_path.resolve() != index_path.resolve():
+        index_path.write_bytes(html_path.read_bytes())
     print()
     print("完了しました。")
     print(f"  CSV : {csv_path.resolve()}")
     print(f"  HTML: {html_path.resolve()}")
+    print(f"  Pages: {index_path.resolve()}")
     print("HTMLをブラウザで開くと、月タブと各書店の検索リンクから特典を確認できます。")
 
 

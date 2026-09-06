@@ -243,7 +243,7 @@ class DetailFetchTests(unittest.TestCase):
         catalog = OfficialIndex()
         catalog.loaded = True
         with patch("manga_checker.stores.time.sleep"):
-            checks = check_stores(comic, fetch=False, session=session, catalog=catalog)
+            checks = check_stores(comic, fetch=True, session=session, catalog=catalog)
         by_id = {c.store_id: c for c in checks}
         self.assertEqual(by_id["animate"].url, "https://www.animate-onlineshop.jp/pd/222/")
         self.assertEqual(by_id["animate"].status, STATUS_YES)

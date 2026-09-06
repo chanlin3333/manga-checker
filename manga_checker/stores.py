@@ -193,6 +193,17 @@ def check_stores(
             )
             continue
         if store.store_id in DETAIL_PAGE_STORES or store.store_id in LISTING_FETCH_STORES:
+            if not fetch:
+                results.append(
+                    StoreCheck(
+                        store.store_id,
+                        store.name,
+                        STATUS_UNKNOWN,
+                        "未取得。リンク先の商品カードで確認してください。",
+                        url,
+                    )
+                )
+                continue
             results.append(_fetch_store(store, comic, url, session))
             time.sleep(delay_sec)
             continue
