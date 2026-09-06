@@ -1,0 +1,331 @@
+"""今月のコミック書誌を取得する。
+
+優先順位:
+1. 楽天ブックス書籍検索API（発売中・予約を含む）
+2. 国立国会図書館サーチ OpenSearch（漫画分類 NDC 726）※楽天APIが使えないときのフォールバック
+3. openBD（ISBNから書誌・書影を補完）
+4. 任意の CSV（手動追加）
+"""
+
+from __future__ import annotations
+
+import csv
+import re
+import time
+import xml.etree.ElementTree as ET
+from collections import Counter
+from datetime import date
+from pathlib import Path
+from urllib.parse import urlencode
+
+import requests
+
+from manga_checker.http import make_session
+from manga_checker.models import Comic
+from manga_checker.openbd import enrich_with_openbd
+from manga_checker.publishers import canonical_publisher, publisher_sort_key
+from manga_checker.rakuten_books import (
+    fetch_rakuten_volume_ones,
+    fetch_rakuten_volume_ones_by_month,
+    rakuten_configured,
+    sales_year_month,
+)
+from manga_checker.retail_dates import fill_missing_pubdates
+from manga_checker.volume import is_volume_one, normalize_text
+
+NS = {
+    "dc": "http://purl.org/dc/elements/1.1/",
+    "dcndl": "http://ndl.go.jp/dcndl/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "openSearch": "http://a9.com/-/spec/opensearchrss/1.0/",
+}
+XSI_TYPE = "{http://www.w3.org/2001/XMLSchema-instance}type"
+
+NDL_OPENSEARCH = "https://ndlsearch.ndl.go.jp/api/opensearch"
+ISBN_RE = re.compile(r"97[89][0-9\-]{10,}")
+VOLUME_ONE_TITLE_QUERIES = ("第1巻", "(1)", "（1）", "1巻", "Vol.1")
+COMIC_PUBLISHERS = (
+    "講談社",
+    "集英社",
+    "小学館",
+    "ＫＡＤＯＫＡＷＡ",
+    "KADOKAWA",
+    "秋田書店",
+    "白泉社",
+    "芳文社",
+    "スクウェア・エニックス",
+    "一迅社",
+    "少年画報社",
+    "コアミックス",
+    "新潮社",
+    "双葉社",
+    "竹書房",
+    "徳間書店",
+    "幻冬舎コミックス",
+    "リブレ",
+    "大洋図書",
+)
+
+
+def month_range(year: int, month: int) -> str:
+    return f"{year:04d}-{month:02d}"
+
+
+def fetch_month_volume_ones(
+    year: int | None = None,
+    month: int | None = None,
+    extra_csv: Path | None = None,
+    session: requests.Session | None = None,
+    limit: int = 0,
+) -> list[Comic]:
+    today = date.today()
+    year = year or today.year
+    month = month or today.month
+    session = session or make_session()
+
+    comics: list[Comic] = []
+    used_rakuten = False
+    if rakuten_configured():
+        try:
+            comics.extend(
+                fetch_rakuten_volume_ones(year, month, session=session)
+            )
+            used_rakuten = True
+            print(f"楽天ブックスAPIから第1巻を {len(comics)} 件取得しました（発売中・予約を含む）。")
+        except Exception as exc:
+            print(f"楽天ブックスAPIを利用できません（{exc}）。NDL/openBDにフォールバックします。")
+            comics = []
+    else:
+        print("楽天アプリIDまたはaccessKeyが未設定のため、NDL/openBDにフォールバックします。")
+
+    if not used_rakuten:
+        ndl = fetch_ndl_comics(year, month, session=session)
+        print(f"NDLから漫画書誌を {len(ndl)} 件取得しました（月内全件）。")
+        comics.extend(c for c in ndl if is_volume_one(c.title, c.volume))
+    if extra_csv and extra_csv.exists():
+        comics.extend(load_csv(extra_csv))
+    comics = _dedupe(comics)
+    comics = enrich_with_openbd(comics, session=session)
+    comics = fill_missing_pubdates(comics, session=session)
+    comics.sort(key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title))
+    by_pub = Counter(canonical_publisher(c.publisher) for c in comics)
+    if by_pub:
+        print(
+            "出版社別累計: "
+            + " / ".join(f"{name} {count}件" for name, count in by_pub.items())
+        )
+    return comics
+
+
+def fetch_months_volume_ones(
+    months: list[tuple[int, int]],
+    extra_csv: Path | None = None,
+    session: requests.Session | None = None,
+) -> dict[tuple[int, int], list[Comic]]:
+    """対象の複数月を、楽天走査は1回だけ行って月別に返す。"""
+    if not months:
+        return {}
+    session = session or make_session()
+    result: dict[tuple[int, int], list[Comic]] = {key: [] for key in months}
+    used_rakuten = False
+    if rakuten_configured():
+        try:
+            by_month = fetch_rakuten_volume_ones_by_month(months, session=session)
+            for key, comics in by_month.items():
+                result[key].extend(comics)
+            used_rakuten = True
+            total = sum(len(comics) for comics in result.values())
+            print(f"楽天ブックスAPIから第1巻を合計 {total} 件取得しました（発売中・予約を含む）。")
+        except Exception as exc:
+            print(f"楽天ブックスAPIを利用できません（{exc}）。NDL/openBDにフォールバックします。")
+            result = {key: [] for key in months}
+    else:
+        print("楽天アプリIDまたはaccessKeyが未設定のため、NDL/openBDにフォールバックします。")
+
+    if not used_rakuten:
+        for year, month in months:
+            ndl = fetch_ndl_comics(year, month, session=session)
+            print(f"NDLから{year}年{month}月の漫画書誌を {len(ndl)} 件取得しました。")
+            result[(year, month)].extend(c for c in ndl if is_volume_one(c.title, c.volume))
+
+    if extra_csv and extra_csv.exists():
+        month_set = set(months)
+        for comic in load_csv(extra_csv):
+            ym = sales_year_month(comic.pubdate)
+            key = ym if ym in month_set else months[0]
+            result[key].append(comic)
+
+    all_comics: list[Comic] = []
+    for key in months:
+        result[key] = _dedupe(result[key])
+        all_comics.extend(result[key])
+    enrich_with_openbd(all_comics, session=session)
+    fill_missing_pubdates(all_comics, session=session)
+    for year, month in months:
+        comics = result[(year, month)]
+        comics.sort(key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title))
+        by_pub = Counter(canonical_publisher(c.publisher) for c in comics)
+        if by_pub:
+            print(
+                f"出版社別累計（{year}年{month}月）: "
+                + " / ".join(f"{name} {count}件" for name, count in by_pub.items())
+            )
+    return result
+
+
+def fetch_ndl_comics(
+    year: int,
+    month: int,
+    session: requests.Session | None = None,
+    page_size: int = 200,
+) -> list[Comic]:
+    """その月の漫画を、APIの許す範囲で上限なく取得する。
+
+    NDL OpenSearch は1クエリあたり500件が上限。月次がそれを超える場合は
+    出版社分割と『第1巻』系タイトル検索を足して取りこぼしを減らす。
+    """
+    session = session or make_session()
+    ym = month_range(year, month)
+    comics, total = _fetch_ndl_range(session, ym, ym, page_size=page_size)
+    print(f"NDL月次クエリ: {len(comics)} 件取得 / 報告 {total} 件")
+
+    if total > 500 or len(comics) >= 500:
+        print("500件上限のため、出版社別に追加取得します。")
+        for publisher in COMIC_PUBLISHERS:
+            extra, _ = _fetch_ndl_range(
+                session, ym, ym, page_size=page_size, extra_params={"publisher": publisher}
+            )
+            comics.extend(extra)
+            time.sleep(0.3)
+
+    for title_q in VOLUME_ONE_TITLE_QUERIES:
+        extra, _ = _fetch_ndl_range(
+            session, ym, ym, page_size=page_size, extra_params={"title": title_q}
+        )
+        comics.extend(extra)
+        time.sleep(0.3)
+
+    return _dedupe(comics)
+
+
+def _fetch_ndl_range(
+    session: requests.Session,
+    date_from: str,
+    date_until: str,
+    page_size: int = 200,
+    hard_cap: int = 500,
+    extra_params: dict[str, str] | None = None,
+) -> tuple[list[Comic], int]:
+    comics: list[Comic] = []
+    start = 1
+    total = 0
+    page_size = min(page_size, 500)
+
+    while start <= hard_cap:
+        params = {
+            "ndc": "726",
+            "from": date_from,
+            "until": date_until,
+            "mediatype": "books",
+            "cnt": str(min(page_size, hard_cap - start + 1)),
+            "idx": str(start),
+        }
+        if extra_params:
+            params.update(extra_params)
+        url = f"{NDL_OPENSEARCH}?{urlencode(params)}"
+        response = session.get(url, timeout=30)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        total_el = root.find("channel/openSearch:totalResults", NS)
+        if total_el is not None and total_el.text:
+            total = int(total_el.text)
+
+        items = root.findall("channel/item")
+        if not items:
+            break
+        for item in items:
+            comic = _parse_ndl_item(item)
+            if comic:
+                comics.append(comic)
+
+        start += len(items)
+        if start > total:
+            break
+        time.sleep(0.4)
+
+    return comics, total
+
+
+def load_csv(path: Path) -> list[Comic]:
+    comics: list[Comic] = []
+    with path.open(encoding="utf-8-sig", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            title = normalize_text(row.get("title") or row.get("タイトル") or "")
+            if not title:
+                continue
+            volume = normalize_text(row.get("volume") or row.get("巻") or "")
+            if not is_volume_one(title, volume):
+                continue
+            comics.append(
+                Comic(
+                    title=title,
+                    volume=volume,
+                    author=normalize_text(row.get("author") or row.get("著者") or ""),
+                    publisher=normalize_text(row.get("publisher") or row.get("出版社") or ""),
+                    pubdate=normalize_text(row.get("pubdate") or row.get("発売日") or ""),
+                    isbn=re.sub(r"[^0-9X]", "", (row.get("isbn") or row.get("ISBN") or "").upper()),
+                    source="csv",
+                )
+            )
+    return comics
+
+
+def _parse_ndl_item(item: ET.Element) -> Comic | None:
+    title = _text(item, "dc:title") or _text(item, "title")
+    if not title:
+        return None
+    volume = _text(item, "dcndl:volume")
+    creators = [el.text.strip() for el in item.findall("dc:creator", NS) if el.text]
+    publishers = [el.text.strip() for el in item.findall("dc:publisher", NS) if el.text]
+    isbn = _isbn_from_item(item)
+    return Comic(
+        title=normalize_text(title),
+        volume=normalize_text(volume),
+        author=" / ".join(creators),
+        publisher=" / ".join(dict.fromkeys(publishers)),
+        pubdate=normalize_text(_text(item, "dcterms:issued")),
+        isbn=isbn,
+        source="ndl",
+        ndl_url=normalize_text(_text(item, "link")),
+        series=normalize_text(_text(item, "dcndl:seriesTitle")),
+    )
+
+
+def _isbn_from_item(item: ET.Element) -> str:
+    for el in item.findall("dc:identifier", NS):
+        xsi_type = el.attrib.get(XSI_TYPE, "")
+        text = (el.text or "").strip()
+        if "ISBN" in xsi_type and text:
+            return re.sub(r"[^0-9X]", "", text.upper())
+        match = ISBN_RE.search(text)
+        if match:
+            return re.sub(r"[^0-9X]", "", match.group(0).upper())
+    return ""
+
+
+def _text(item: ET.Element, path: str) -> str:
+    el = item.find(path, NS)
+    return (el.text or "").strip() if el is not None else ""
+
+
+def _dedupe(comics: list[Comic]) -> list[Comic]:
+    seen: set[str] = set()
+    unique: list[Comic] = []
+    for comic in comics:
+        key = comic.isbn or comic.display_title
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(comic)
+    return unique
