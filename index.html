@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>コミック第1巻 書店特典チェック</title>
+  <style>
+    :root {
+      --bg: #efe7dc;
+      --paper: #fffaf3;
+      --ink: #2a211c;
+      --muted: #7a6f66;
+      --accent: #c45c26;
+      --yes: #1f7a3a;
+      --yes-bg: #e5f6ea;
+      --no: #5c5854;
+      --no-bg: #eeeae4;
+      --todo: #8a6400;
+      --todo-bg: #fff3cc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      background:
+        radial-gradient(circle at top left, #f7efe3, transparent 28%),
+        var(--bg);
+      color: var(--ink);
+    }
+    header {
+      padding: 32px 24px 12px;
+      max-width: 1360px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 5;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+      letter-spacing: 0.04em;
+    }
+    .kicker {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.8rem;
+      letter-spacing: 0.18em;
+      margin: 0 0 6px;
+    }
+    .summary, .legend, .indexes, .search-hit {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 6px 0;
+    }
+    .month-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0 4px;
+    }
+    .month-tab {
+      min-width: 7.5em;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 999px;
+      background: #fffaf3;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 800;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .month-tab:hover {
+      background: #f3e6d6;
+    }
+    .month-tab.is-active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .index-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 4px;
+    }
+    .index-label {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .index-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 6.5em;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      white-space: nowrap;
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    }
+    .index-tab:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.06);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.16);
+    }
+    .index-tab-animate {
+      background: #f5d000;
+      color: #0b3cc8;
+    }
+    .index-tab-melon {
+      background: #8bc34a;
+      color: #143308;
+    }
+    .index-tab-gamers {
+      background: #ff8a1a;
+      color: #3d1a00;
+    }
+    /* 紀伊國屋書店: 藍色・白文字 */
+    .index-tab-kinokuniya,
+    .index-tab[data-store="kinokuniya"] {
+      background: #123a6e;
+      color: #fff;
+    }
+    /* 喜久屋書店: 薄い紫 */
+    .index-tab-kikuya,
+    .index-tab[data-store="kikuya"] {
+      background: #e4c7f5;
+      color: #3a1a55;
+    }
+    .index-tab-kumazawa {
+      background: #cbb089;
+      color: #3d2c16;
+    }
+    .month-panel[hidden] {
+      display: none !important;
+    }
+    .search-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 10px 16px;
+      margin: 14px 0 8px;
+    }
+    .search-cluster {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      flex: 1 1 320px;
+      max-width: 560px;
+    }
+    .search-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 10px 36px 10px 12px;
+      border: 1px solid #e2d5c4;
+      border-radius: 10px;
+      background: #fffaf3;
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    .search-wrap input:focus {
+      outline: 2px solid #e8b48a;
+      outline-offset: 1px;
+    }
+    .search-clear {
+      position: absolute;
+      right: 6px;
+      top: 10px;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 50%;
+      background: #efe7dc;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .search-clear:hover {
+      background: #f3e6d6;
+      color: var(--ink);
+    }
+    .search-go {
+      flex: 0 0 auto;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.15rem;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .search-go:hover {
+      filter: brightness(1.05);
+    }
+    .search-suggest {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      margin: 0;
+      padding: 6px 0;
+      list-style: none;
+      background: #fffaf3;
+      border: 1px solid #e2d5c4;
+      border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(80, 50, 20, 0.16);
+      z-index: 20;
+      max-height: 420px;
+      overflow: auto;
+    }
+    .search-suggest[hidden] {
+      display: none !important;
+    }
+    .suggest-item {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      font-family: inherit;
+    }
+    .suggest-item:hover,
+    .suggest-item.active {
+      background: #f3e6d6;
+    }
+    .suggest-thumb {
+      width: 40px;
+      height: 56px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #d9cfc3;
+    }
+    .suggest-thumb.ph {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      color: #8a7f75;
+    }
+    .suggest-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .suggest-meta {
+      margin-top: 2px;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .search-hit {
+      font-weight: 700;
+      margin: 8px 0 0;
+    }
+    .card.focus-flash {
+      outline: 3px solid var(--accent);
+      box-shadow: 0 0 0 6px rgba(196, 92, 38, 0.28);
+      animation: cardGlow 2.8s ease;
+    }
+    @keyframes cardGlow {
+      0% { box-shadow: 0 0 0 8px rgba(196, 92, 38, 0.45); }
+      100% { box-shadow: 0 8px 24px rgba(80, 50, 20, 0.08); }
+    }
+    .legend b.yes { color: var(--yes); }
+    .legend b.no { color: var(--no); }
+    .legend b.todo { color: var(--todo); }
+    main { max-width: 1360px; margin: 0 auto 48px; padding: 0 16px; }
+    .day-block { margin-top: 28px; }
+    .day-label {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 0 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2d5c4;
+      font-size: 1.15rem;
+    }
+    .day-label .count {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 12px;
+      min-width: 340px;
+      background: var(--paper);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 8px 24px rgba(80, 50, 20, 0.08);
+    }
+    .cover-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .cover {
+      width: 110px;
+      height: 156px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #d9cfc3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .cover.ph {
+      color: #8a7f75;
+      font-size: 0.75rem;
+      text-align: center;
+      padding: 8px;
+    }
+    .card-body h3 {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+    .title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 0 0 6px;
+    }
+    .copy-title {
+      flex: 0 0 auto;
+      margin-top: 2px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+    .copy-title:hover {
+      background: #f3e6d6;
+      color: var(--ink);
+    }
+    .copy-title.done {
+      color: var(--yes);
+    }
+    .date-chip {
+      display: inline-block;
+      margin: 0 0 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f3e6d6;
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .credit {
+      margin: 0;
+      font-size: 0.58rem;
+      line-height: 1.35;
+      color: #9a9088;
+    }
+    footer.api-credit {
+      max-width: 1360px;
+      margin: 0 auto 32px;
+      padding: 0 16px 24px;
+      color: #9a9088;
+      font-size: 0.72rem;
+    }
+    .meta, .isbn {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+    .ext-links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin: 0 0 8px;
+    }
+    .ext {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      line-height: 1;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    .ext .mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.15em;
+      height: 1.15em;
+      border-radius: 50%;
+      font-size: 0.68rem;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .ext.amazon {
+      background: #232f3e;
+      color: #ff9900;
+    }
+    .ext.amazon .mark {
+      background: #ff9900;
+      color: #232f3e;
+    }
+    .ext.rakuten {
+      background: #bf0000;
+      color: #fff;
+    }
+    .ext.rakuten .mark {
+      background: #fff;
+      color: #bf0000;
+      border-radius: 3px;
+    }
+    .badges {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      padding: 7px 4px;
+      border-radius: 8px;
+      text-decoration: none;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .badge .store {
+      font-size: 0.66rem;
+      font-weight: 800;
+      line-height: 1.25;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      word-break: keep-all;
+    }
+    .badge .status {
+      font-size: 0.7rem;
+      font-weight: 800;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .badge.yes {
+      background: #16a34a;
+      color: #fff;
+    }
+    .badge.yes .store,
+    .badge.yes .status { color: #fff; }
+    .badge.no {
+      background: #eceae6;
+      color: #3f3c39;
+    }
+    .badge.no .store,
+    .badge.no .status { color: #4b5563; }
+    .badge.todo {
+      background: #fff3cc;
+      color: #8a6400;
+    }
+    .badge.todo .store,
+    .badge.todo .status { color: #8a6400; }
+    .empty { color: var(--muted); padding: 24px; }
+    .ad-container {
+      margin: 20px auto;
+      text-align: center;
+      max-width: 1360px;
+      width: 100%;
+      padding: 0 16px;
+      overflow: hidden;
+    }
+    .ad-pr {
+      margin: 0 0 6px;
+      color: #9a9088;
+      font-size: 0.65rem;
+      letter-spacing: 0.16em;
+      font-weight: 700;
+    }
+    .ad-slot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 728px;
+      min-height: 90px;
+      margin: 0 auto;
+      background: #e8e2d8;
+      color: #9a9088;
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      border: 1px dashed #cfc4b6;
+      overflow: hidden;
+    }
+    .ad-container img,
+    .ad-container iframe,
+    .ad-container ins {
+      max-width: 100%;
+      height: auto;
+    }
+    .ad-footer {
+      margin-bottom: 8px;
+    }
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px auto 40px;
+      padding: 4px 16px 24px;
+    }
+    .pager-pages {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pager-btn {
+      min-width: 40px;
+      height: 40px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: #fffaf3;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    .pager-btn:hover:not(:disabled) {
+      background: #f3e6d6;
+    }
+    .pager-btn.is-current {
+      background: var(--accent);
+      color: #fff;
+    }
+    .pager-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .back-to-top {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 88px;
+      height: auto;
+      padding: 8px 14px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      line-height: 1.15;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(196, 92, 38, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.2s ease;
+    }
+    .back-to-top-icon {
+      font-size: 13px;
+      line-height: 1;
+    }
+    .back-to-top-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .back-to-top.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .back-to-top:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(196, 92, 38, 0.4);
+    }
+    .card[hidden],
+    .day-block[hidden],
+    .month-panel[hidden],
+    #search-empty[hidden],
+    .search-suggest[hidden],
+    .pager[hidden] {
+      display: none !important;
+    }
+    @media (max-width: 640px) {
+      .card { grid-template-columns: 84px 1fr; min-width: 0; }
+      .cover { width: 84px; height: 120px; }
+      .badges { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .ext { font-size: 0.66rem; padding: 6px 4px; }
+      .ad-slot { min-height: 60px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="kicker">COMIC RELEASE CALENDAR</p>
+    <h1>コミック第1巻 書店特典チェック</h1>
+    <p class="summary">2026年6月、2026年7月、2026年8月、2026年9月、2026年10月、2026年11月、2026年12月の第1巻を月タブで切り替えられます。初期表示は2026年9月です。各月は出版社優先順 → 発売日順です。特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。</p>
+    <p class="legend" id="status-legend">
+      凡例:
+      <b class="yes" id="legend-yes">特典あり 4</b>
+      <b class="no" id="legend-no">通常/なし 15</b>
+      <b class="todo" id="legend-todo">未確認 2</b>
+    </p>
+    <nav class="index-tabs" aria-label="特典一覧">
+      <span class="index-label">特典一覧</span>
+      <a class='index-tab index-tab-animate' data-store='animate' href='https://www.animate-onlineshop.jp/products/privilege_list.php' target='_blank' rel='noopener noreferrer'>アニメイト</a><a class='index-tab index-tab-melon' data-store='melonbooks' href='https://www.melonbooks.co.jp/privilege/privilege.php' target='_blank' rel='noopener noreferrer'>メロンブックス</a><a class='index-tab index-tab-gamers' data-store='gamers' href='https://www.gamers.co.jp/products/privilege_list.php' target='_blank' rel='noopener noreferrer'>ゲーマーズ</a><a class='index-tab index-tab-kikuya' data-store='kikuya' href='https://kikuyashoten.myshopify.com' target='_blank' rel='noopener noreferrer'>喜久屋書店</a><a class='index-tab index-tab-kinokuniya' data-store='kinokuniya' href='https://www.kinokuniya.co.jp/' target='_blank' rel='noopener noreferrer'>紀伊國屋書店</a><a class='index-tab index-tab-kumazawa' data-store='kumazawa' href='https://www.search.kumabook.com/kumazawa/html/products/list' target='_blank' rel='noopener noreferrer'>くまざわ書店</a>
+    </nav>
+    <nav class="month-tabs" role="tablist" aria-label="発売月"><button type="button" class="month-tab" role="tab" data-month="2026-06" aria-selected="false" aria-controls="month-2026-06">2026年6月</button><button type="button" class="month-tab" role="tab" data-month="2026-07" aria-selected="false" aria-controls="month-2026-07">2026年7月</button><button type="button" class="month-tab" role="tab" data-month="2026-08" aria-selected="false" aria-controls="month-2026-08">2026年8月</button><button type="button" class="month-tab is-active" role="tab" data-month="2026-09" aria-selected="true" aria-controls="month-2026-09">2026年9月</button><button type="button" class="month-tab" role="tab" data-month="2026-10" aria-selected="false" aria-controls="month-2026-10">2026年10月</button><button type="button" class="month-tab" role="tab" data-month="2026-11" aria-selected="false" aria-controls="month-2026-11">2026年11月</button><button type="button" class="month-tab" role="tab" data-month="2026-12" aria-selected="false" aria-controls="month-2026-12">2026年12月</button></nav>
+    <div class="search-bar">
+      <div class="search-cluster">
+        <div class="search-wrap">
+          <input id="comic-search" type="search" placeholder="タイトル・著者・出版社で検索"
+                 autocomplete="off" spellcheck="false" aria-label="作品を検索"
+                 aria-autocomplete="list" aria-controls="search-suggest">
+          <button type="button" class="search-clear" id="search-clear" aria-label="検索をクリア">×</button>
+          <ul class="search-suggest" id="search-suggest" hidden role="listbox"></ul>
+        </div>
+        <button type="button" class="search-go" id="search-go" aria-label="検索する">🔍</button>
+      </div>
+      <p class="search-hit" id="search-hit">3件中 3件表示</p>
+    </div>
+  </header>
+  <div class="ad-container ad-header">
+    <p class="ad-pr">PR</p>
+    <div class="ad-slot"><!-- 上部広告スペース（728x90等） -->広告スペース</div>
+  </div>
+  <main>
+    <div class="month-panel" id="month-2026-06" data-month="2026-06" data-total="3" data-yes="1" data-no="19" data-todo="1" role="tabpanel" hidden><section class="day-block" data-publisher="集英社"><h2 class="day-label">集英社<span class="count">1作品</span></h2><div class="card-grid"><article class="card" id="comic-card-0" data-card-id="0" data-search="世界で一番しあわせ! 1 アルコ 春芳 きざし 集英社 セカイデイチバンシアワセ アルコ ハルヨシ キザシ せかいでいちばんしあわせ sekaideichibanshiawase あるこ はるよし きざし arukoharuyoshikizashi よ yo せい sei せ se かい kai で de いち ichi ひと hito 番 し shi あ a わ wa ! 1 1 せかい sekai よかいでいち番しあわせ! 1 yokaideichishiawase1 よかいでひと番しあわせ! 1 yokaidehitoshiawase1 せいかいでいち番しあわせ! 1 seikaideichishiawase1 せいかいでひと番しあわせ! 1 seikaidehitoshiawase1 せかいでいち番しあわせ! 1 sekaideichishiawase1 せかいでひと番しあわせ! 1 sekaidehitoshiawase1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2699/9784088552699_1_9.jpg?_ex=200x200" data-title="世界で一番しあわせ! 1" data-publisher="集英社" data-date="2026/06/25 (木)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2699/9784088552699_1_9.jpg?_ex=200x200" alt="世界で一番しあわせ! 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/06/25 (木)</p><div class="title-row"><h3>世界で一番しあわせ! 1</h3><button type="button" class="copy-title" data-title="世界で一番しあわせ! 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088552695" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088552699%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">アルコ/春芳 きざし</p><p class="meta">集英社</p><p class="isbn">9784088552699</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3466335/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3610615" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088552699&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012795642/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge yes" href="https://kikuyashoten.myshopify.com/search?q=%E4%B8%96%E7%95%8C%E3%81%A7%E4%B8%80%E7%95%AA%E3%81%97%E3%81%82%E3%82%8F%E3%81%9B%21" target="_blank" rel="noopener noreferrer" title="公式特典ページで確認: 描き下ろし / イラストカード"><span class='store'>喜久屋書店</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088552699" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088552699" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section>
+<section class="day-block" data-publisher="講談社"><h2 class="day-label">講談社<span class="count">2作品</span></h2><div class="card-grid"><article class="card" id="comic-card-1" data-card-id="1" data-search="息子の彼女 1 雪魚 講談社 ムスコノカノジョ1 セツギョ むすこのかのじょ1 musukonokanojo1 せつぎょ setsugyo 息 こ ko し shi の no 彼 おんな onna じょ jo 1 1 息この彼おんな 1 konoonna1 息この彼じょ 1 konojo1 息しの彼おんな 1 shinoonna1 息しの彼じょ 1 shinojo1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3676/9784065433676_1_4.jpg?_ex=200x200" data-title="息子の彼女(1)" data-publisher="講談社" data-date="2026/06/19 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3676/9784065433676_1_4.jpg?_ex=200x200" alt="息子の彼女(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/06/19 (金)</p><div class="title-row"><h3>息子の彼女(1)</h3><button type="button" class="copy-title" data-title="息子の彼女(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065433673" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065433676%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">雪魚</p><p class="meta">講談社</p><p class="isbn">9784065433676</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3442795/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3480239" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065433676&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012795571/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E6%81%AF%E5%AD%90%E3%81%AE%E5%BD%BC%E5%A5%B3" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065433676" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065433676" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-2" data-card-id="2" data-search="SとX セラピスト霜鳥壱人の診察室 1 多田 基生 講談社 エストエックス セラピストシモトリイチトノシンサツシツ1 タダ キセイ えすとえっくす せらぴすとしもとりいちとのしんさつしつ1 esutoekkususerapisutoshimotoriichitonoshinsatsushitsu1 ただ きせい tadakisei s s と to x x せ se ら ra ぴ pi す su 霜 鳥 壱 ひと hito じん jin にん nin の no 診 察 室 1 1 sとx せらぴすと霜鳥壱ひとの診察室 1 stoxserapisutohitono1 sとx せらぴすと霜鳥壱じんの診察室 1 stoxserapisutojinno1 sとx せらぴすと霜鳥壱にんの診察室 1 stoxserapisutoninno1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/5960/9784065435960_1_2.jpg?_ex=200x200" data-title="SとX セラピスト霜鳥壱人の診察室(1)" data-publisher="講談社" data-date="2026/06/23 (火)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/5960/9784065435960_1_2.jpg?_ex=200x200" alt="SとX セラピスト霜鳥壱人の診察室(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/06/23 (火)</p><div class="title-row"><h3>SとX セラピスト霜鳥壱人の診察室(1)</h3><button type="button" class="copy-title" data-title="SとX セラピスト霜鳥壱人の診察室(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/406543596X" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065435960%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">多田 基生</p><p class="meta">講談社</p><p class="isbn">9784065435960</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3469408/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784065435960&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065435960&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012809637/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=S%E3%81%A8X%20%E3%82%BB%E3%83%A9%E3%83%94%E3%82%B9%E3%83%88%E9%9C%9C%E9%B3%A5%E5%A3%B1%E4%BA%BA%E3%81%AE%E8%A8%BA%E5%AF%9F%E5%AE%A4" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065435960" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065435960" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel" id="month-2026-07" data-month="2026-07" data-total="3" data-yes="0" data-no="20" data-todo="1" role="tabpanel" hidden><section class="day-block" data-publisher="集英社"><h2 class="day-label">集英社<span class="count">3作品</span></h2><div class="card-grid"><article class="card" id="comic-card-3" data-card-id="3" data-search="TARO 1 音木 ひろし 集英社 タロ オトギ ヒロシ たろ taro おとぎ ひろし otogihiroshi t t a a r r o o 1 1 taro 1 taro1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0979/9784088850979_1_9.jpg?_ex=200x200" data-title="TARO 1" data-publisher="集英社" data-date="2026/07/03 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0979/9784088850979_1_9.jpg?_ex=200x200" alt="TARO 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/07/03 (金)</p><div class="title-row"><h3>TARO 1</h3><button type="button" class="copy-title" data-title="TARO 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088850971" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088850979%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">音木 ひろし</p><p class="meta">集英社</p><p class="isbn">9784088850979</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3489922/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3643496" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088850979&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=TARO" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=TARO" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088850979" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088850979" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-4" data-card-id="4" data-search="エイリアンヘッドバット 1 犬居 彰 集英社 エイリアンヘッドバット イヌイ アキラ えいりあんへっどばっと eirianheddobatto いぬい あきら inuiakira え e い i り ri あ a ん n へ he っ ど do ば ba と to 1 1 えいりあんへっどばっと 1 eirianheddobatto1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0931/9784088850931_1_8.jpg?_ex=200x200" data-title="エイリアンヘッドバット 1" data-publisher="集英社" data-date="2026/07/03 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0931/9784088850931_1_8.jpg?_ex=200x200" alt="エイリアンヘッドバット 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/07/03 (金)</p><div class="title-row"><h3>エイリアンヘッドバット 1</h3><button type="button" class="copy-title" data-title="エイリアンヘッドバット 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088850939" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088850931%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">犬居 彰</p><p class="meta">集英社</p><p class="isbn">9784088850931</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3489897/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3643499" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088850931&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012801410/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%82%A8%E3%82%A4%E3%83%AA%E3%82%A2%E3%83%B3%E3%83%98%E3%83%83%E3%83%89%E3%83%90%E3%83%83%E3%83%88" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088850931" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088850931" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-5" data-card-id="5" data-search="ブヨトピア 1 雲母坂 盾 集英社 ブヨトピア キララザカ ジュン ぶよとぴあ buyotopia きららざか じゅん kirarazakajun ぶ bu よ yo と to ぴ pi あ a 1 1 ぶよとぴあ 1 buyotopia1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/1624/9784088851624_1_9.jpg?_ex=200x200" data-title="ブヨトピア 1" data-publisher="集英社" data-date="2026/07/03 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/1624/9784088851624_1_9.jpg?_ex=200x200" alt="ブヨトピア 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/07/03 (金)</p><div class="title-row"><h3>ブヨトピア 1</h3><button type="button" class="copy-title" data-title="ブヨトピア 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088851625" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088851624%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">雲母坂 盾</p><p class="meta">集英社</p><p class="isbn">9784088851624</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3489964/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3643480" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088851624&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012801405/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%83%96%E3%83%A8%E3%83%88%E3%83%94%E3%82%A2" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088851624" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088851624" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel" id="month-2026-08" data-month="2026-08" data-total="3" data-yes="2" data-no="18" data-todo="1" role="tabpanel" hidden><section class="day-block" data-publisher="講談社"><h2 class="day-label">講談社<span class="count">2作品</span></h2><div class="card-grid"><article class="card" id="comic-card-6" data-card-id="6" data-search="かつては悪役令嬢でしたが今では立派なオジサンです 1 武柴 講談社 カツテハアクヤクレイジョウデシタガイマデハリッパナオジサンデス1 タケシバ かつてはあくやくれいじょうでしたがいまではりっぱなおじさんです1 katsutehaakuyakureijoudeshitagaimadeharippanaojisandesu1 たけしば takeshiba か ka つ tsu て te は ha わる waru あく aku 役 令 嬢 で de し shi た ta が ga いま ima こん kon 立 派 な na お o じ ji さ sa ん n す su 1 1 かつてはわる役令嬢でしたがいまでは立派なおじさんです 1 katsutehawarudeshitagaimadehanaojisandesu1 かつてはわる役令嬢でしたがこんでは立派なおじさんです 1 katsutehawarudeshitagakondehanaojisandesu1 かつてはあく役令嬢でしたがいまでは立派なおじさんです 1 katsutehaakudeshitagaimadehanaojisandesu1 かつてはあく役令嬢でしたがこんでは立派なおじさんです 1 katsutehaakudeshitagakondehanaojisandesu1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/5082/9784065445082_1_4.jpg?_ex=200x200" data-title="かつては悪役令嬢でしたが今では立派なオジサンです(1)" data-publisher="講談社" data-date="2026/08/28 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/5082/9784065445082_1_4.jpg?_ex=200x200" alt="かつては悪役令嬢でしたが今では立派なオジサンです(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/08/28 (金)</p><div class="title-row"><h3>かつては悪役令嬢でしたが今では立派なオジサンです(1)</h3><button type="button" class="copy-title" data-title="かつては悪役令嬢でしたが今では立派なオジサンです(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065445086" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065445082%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">武柴</p><p class="meta">講談社</p><p class="isbn">9784065445082</p><div class="badges"><a class="badge yes" href="https://www.animate-onlineshop.jp/pd/3528454/" target="_blank" rel="noopener noreferrer" title="詳細ページで検出: メーカー特典 特典について メーカー特典：●メッセージペーパー ※特典は無くなり次第終了します。ご了承くだ"><span class='store'>アニメイト</span><span class='status'>特典あり</span></a><a class="badge yes" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3720812" target="_blank" rel="noopener noreferrer" title="詳細ページで検出: イラストカード メロンブックス特典 描き下ろしイラストカード ※特典は無くなり次第、終了とさせて頂きます。ご了承下"><span class='store'>メロンブックス</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065445082&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012809676/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%81%8B%E3%81%A4%E3%81%A6%E3%81%AF%E6%82%AA%E5%BD%B9%E4%BB%A4%E5%AC%A2%E3%81%A7%E3%81%97%E3%81%9F%E3%81%8C%E4%BB%8A%E3%81%A7%E3%81%AF%E7%AB%8B%E6%B4%BE%E3%81%AA%E3%82%AA%E3%82%B8%E3%82%B5%E3%83%B3%E3%81%A7%E3%81%99" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065445082" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065445082" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-7" data-card-id="7" data-search="猫かぶり姫と天上の音楽 1 もり 佐藤 里 由貴 海里 講談社 ネコカブリヒメトテンジョウノオンガク1 モリ サトウ サト ユキ カイリ ねこかぶりひめとてんじょうのおんがく1 nekokaburihimetotenjounoongaku1 もり さとう さと ゆき かいり morisatousatoyukikairi ねこ neko びょう byou か ka ぶ bu り ri ひめ hime き ki と to てん ten あま ama うえ ue じょう jou うわ uwa あ a の no おと oto おん on 楽 1 1 ねこかぶりひめとてんうえのおと楽 1 nekokaburihimetotenuenooto1 ねこかぶりひめとてんうえのおん楽 1 nekokaburihimetotenuenoon1 ねこかぶりひめとてんじょうのおと楽 1 nekokaburihimetotenjounooto1 ねこかぶりひめとてんじょうのおん楽 1 nekokaburihimetotenjounoon1 ねこかぶりひめとてんうわのおと楽 1 nekokaburihimetotenuwanooto1 ねこかぶりひめとてんうわのおん楽 1 nekokaburihimetotenuwanoon1 ねこかぶりひめとてんあのおと楽 1 nekokaburihimetotenanooto1 ねこかぶりひめとてんあのおん楽 1 nekokaburihimetotenanoon1 ねこかぶりひめとあまうえのおと楽 1 nekokaburihimetoamauenooto1 ねこかぶりひめとあまうえのおん楽 1 nekokaburihimetoamauenoon1 ねこかぶりひめとあまじょうのおと楽 1 nekokaburihimetoamajounooto1 ねこかぶりひめとあまじょうのおん楽 1 nekokaburihimetoamajounoon1 ねこかぶりひめとあまうわのおと楽 1 nekokaburihimetoamauwanooto1 ねこかぶりひめとあまうわのおん楽 1 nekokaburihimetoamauwanoon1 ねこかぶりひめとあまあのおと楽 1 nekokaburihimetoamaanooto1 ねこかぶりひめとあまあのおん楽 1 nekokaburihimetoamaanoon1 ねこかぶりきとてんうえのおと楽 1 nekokaburikitotenuenooto1 ねこかぶりきとてんうえのおん楽 1 nekokaburikitotenuenoon1 ねこかぶりきとてんじょうのおと楽 1 nekokaburikitotenjounooto1 ねこかぶりきとてんじょうのおん楽 1 nekokaburikitotenjounoon1 ねこかぶりきとてんうわのおと楽 1 nekokaburikitotenuwanooto1 ねこかぶりきとてんうわのおん楽 1 nekokaburikitotenuwanoon1 ねこかぶりきとてんあのおと楽 1 nekokaburikitotenanooto1 ねこかぶりきとてんあのおん楽 1 nekokaburikitotenanoon1 ねこかぶりきとあまうえのおと楽 1 nekokaburikitoamauenooto1 ねこかぶりきとあまうえのおん楽 1 nekokaburikitoamauenoon1 ねこかぶりきとあまじょうのおと楽 1 nekokaburikitoamajounooto1 ねこかぶりきとあまじょうのおん楽 1 nekokaburikitoamajounoon1 ねこかぶりきとあまうわのおと楽 1 nekokaburikitoamauwanooto1 ねこかぶりきとあまうわのおん楽 1 nekokaburikitoamauwanoon1 ねこかぶりきとあまあのおと楽 1 nekokaburikitoamaanooto1 ねこかぶりきとあまあのおん楽 1 nekokaburikitoamaanoon1 びょうかぶりひめとてんうえのおと楽 1 byoukaburihimetotenuenooto1 びょうかぶりひめとてんうえのおん楽 1 byoukaburihimetotenuenoon1 びょうかぶりひめとてんじょうのおと楽 1 byoukaburihimetotenjounooto1 びょうかぶりひめとてんじょうのおん楽 1 byoukaburihimetotenjounoon1 びょうかぶりひめとてんうわのおと楽 1 byoukaburihimetotenuwanooto1 びょうかぶりひめとてんうわのおん楽 1 byoukaburihimetotenuwanoon1 びょうかぶりひめとてんあのおと楽 1 byoukaburihimetotenanooto1 びょうかぶりひめとてんあのおん楽 1 byoukaburihimetotenanoon1 びょうかぶりひめとあまうえのおと楽 1 byoukaburihimetoamauenooto1 びょうかぶりひめとあまうえのおん楽 1 byoukaburihimetoamauenoon1 びょうかぶりひめとあまじょうのおと楽 1 byoukaburihimetoamajounooto1 びょうかぶりひめとあまじょうのおん楽 1 byoukaburihimetoamajounoon1 びょうかぶりひめとあまうわのおと楽 1 byoukaburihimetoamauwanooto1 びょうかぶりひめとあまうわのおん楽 1 byoukaburihimetoamauwanoon1 びょうかぶりひめとあまあのおと楽 1 byoukaburihimetoamaanooto1 びょうかぶりひめとあまあのおん楽 1 byoukaburihimetoamaanoon1 びょうかぶりきとてんうえのおと楽 1 byoukaburikitotenuenooto1 びょうかぶりきとてんうえのおん楽 1 byoukaburikitotenuenoon1 びょうかぶりきとてんじょうのおと楽 1 byoukaburikitotenjounooto1 びょうかぶりきとてんじょうのおん楽 1 byoukaburikitotenjounoon1 びょうかぶりきとてんうわのおと楽 1 byoukaburikitotenuwanooto1 びょうかぶりきとてんうわのおん楽 1 byoukaburikitotenuwanoon1 びょうかぶりきとてんあのおと楽 1 byoukaburikitotenanooto1 びょうかぶりきとてんあのおん楽 1 byoukaburikitotenanoon1 びょうかぶりきとあまうえのおと楽 1 byoukaburikitoamauenooto1 びょうかぶりきとあまうえのおん楽 1 byoukaburikitoamauenoon1 びょうかぶりきとあまじょうのおと楽 1 byoukaburikitoamajounooto1 びょうかぶりきとあまじょうのおん楽 1 byoukaburikitoamajounoon1 びょうかぶりきとあまうわのおと楽 1 byoukaburikitoamauwanooto1 びょうかぶりきとあまうわのおん楽 1 byoukaburikitoamauwanoon1 びょうかぶりきとあまあのおと楽 1 byoukaburikitoamaanooto1 びょうかぶりきとあまあのおん楽 1 byoukaburikitoamaanoon1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/4994/9784065434994_1_8.jpg?_ex=200x200" data-title="猫かぶり姫と天上の音楽(1)" data-publisher="講談社" data-date="2026/08/28 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/4994/9784065434994_1_8.jpg?_ex=200x200" alt="猫かぶり姫と天上の音楽(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/08/28 (金)</p><div class="title-row"><h3>猫かぶり姫と天上の音楽(1)</h3><button type="button" class="copy-title" data-title="猫かぶり姫と天上の音楽(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065434998" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065434994%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">もり/佐藤 里/由貴 海里</p><p class="meta">講談社</p><p class="isbn">9784065434994</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3519488/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3697642" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065434994&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012809667/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E7%8C%AB%E3%81%8B%E3%81%B6%E3%82%8A%E5%A7%AB%E3%81%A8%E5%A4%A9%E4%B8%8A%E3%81%AE%E9%9F%B3%E6%A5%BD" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065434994" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065434994" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section>
+<section class="day-block" data-publisher="小学館"><h2 class="day-label">小学館<span class="count">1作品</span></h2><div class="card-grid"><article class="card" id="comic-card-8" data-card-id="8" data-search="デュエル マスターズRX 1 松本 しげのぶ 小学館 デュエル マスターズ リバースクロス マツモト シゲノブ でゅえる ますたーず りばーすくろす deyuerumasutazuribasukurosu まつもと しげのぶ matsumotoshigenobu で de ゅ yu え e る ru ま ma す su た ta ー ず zu r r x x 1 1 でゅえる ますたーずrx 1 deyuerumasutazurx1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3097/9784091543097_1_32.jpg?_ex=200x200" data-title="デュエル・マスターズRX(1)" data-publisher="小学館" data-date="2026/08/28 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3097/9784091543097_1_32.jpg?_ex=200x200" alt="デュエル・マスターズRX(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/08/28 (金)</p><div class="title-row"><h3>デュエル・マスターズRX(1)</h3><button type="button" class="copy-title" data-title="デュエル・マスターズRX(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/409154309X" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784091543097%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">松本 しげのぶ</p><p class="meta">小学館</p><p class="isbn">9784091543097</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3537584/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784091543097&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784091543097&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012816946/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%83%87%E3%83%A5%E3%82%A8%E3%83%AB%E3%83%BB%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC%E3%82%BARX" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784091543097" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784091543097" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel is-active" id="month-2026-09" data-month="2026-09" data-total="3" data-yes="4" data-no="15" data-todo="2" role="tabpanel"><section class="day-block" data-publisher="集英社"><h2 class="day-label">集英社<span class="count">3作品</span></h2><div class="card-grid"><article class="card" id="comic-card-9" data-card-id="9" data-search="2年B組 勇者デストロイヤーず 1 空知 英秋 集英社 2ネンビーグミ ユウシャデストロイヤーズ ソラチ ヒデアキ 2ねんびーぐみ ゆうしゃですとろいやーず 2nenbigumiyuushadesutoroiyazu そらち ひであき sorachihideaki 2 2 とし toshi ねん nen b b 組 ゆう yuu いさ isa しゃ sha もの mono で de す su と to ろ ro い i や ya ー ず zu 1 1 2としb組 ゆうしゃですとろいやーず 1 2toshibyuushadesutoroiyazu1 2としb組 ゆうものですとろいやーず 1 2toshibyuumonodesutoroiyazu1 2としb組 いさしゃですとろいやーず 1 2toshibisashadesutoroiyazu1 2としb組 いさものですとろいやーず 1 2toshibisamonodesutoroiyazu1 2ねんb組 ゆうしゃですとろいやーず 1 2nenbyuushadesutoroiyazu1 2ねんb組 ゆうものですとろいやーず 1 2nenbyuumonodesutoroiyazu1 2ねんb組 いさしゃですとろいやーず 1 2nenbisashadesutoroiyazu1 2ねんb組 いさものですとろいやーず 1 2nenbisamonodesutoroiyazu1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2287/9784088852287_1_10.jpg?_ex=200x200" data-title="2年B組 勇者デストロイヤーず 1" data-publisher="集英社" data-date="2026/09/04 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2287/9784088852287_1_10.jpg?_ex=200x200" alt="2年B組 勇者デストロイヤーず 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/09/04 (金)</p><div class="title-row"><h3>2年B組 勇者デストロイヤーず 1</h3><button type="button" class="copy-title" data-title="2年B組 勇者デストロイヤーず 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852281" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852287%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">空知 英秋</p><p class="meta">集英社</p><p class="isbn">9784088852287</p><div class="badges"><a class="badge yes" href="https://www.animate-onlineshop.jp/pd/3543597/" target="_blank" rel="noopener noreferrer" title="詳細ページで検出: アニメイト特典 特典について アニメイト特典：イラストカード ※特典は無くなり次第終了します。ご了承ください"><span class='store'>アニメイト</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3755746" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852287&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=2%E5%B9%B4B%E7%B5%84%20%E5%8B%87%E8%80%85%E3%83%87%E3%82%B9%E3%83%88%E3%83%AD%E3%82%A4%E3%83%A4%E3%83%BC%E3%81%9A" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=2%E5%B9%B4B%E7%B5%84%20%E5%8B%87%E8%80%85%E3%83%87%E3%82%B9%E3%83%88%E3%83%AD%E3%82%A4%E3%83%A4%E3%83%BC%E3%81%9A" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852287" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852287" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-10" data-card-id="10" data-search="あっ、悪魔ちゃん 1 深津 ザオウ 集英社 アッ アクマチャン フカツ ザオウ あっ あくまちゃん aaakumachan ふかつ ざおう fukatsuzaou あ a っ 、 わる waru あく aku ま ma ち chi ゃ ya ん n 1 1 あっ、わるまちゃん 1 awwarumachan1 あっ、あくまちゃん 1 aaakumachan1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2546/9784088852546_1_10.jpg?_ex=200x200" data-title="あっ、悪魔ちゃん 1" data-publisher="集英社" data-date="2026/09/04 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2546/9784088852546_1_10.jpg?_ex=200x200" alt="あっ、悪魔ちゃん 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/09/04 (金)</p><div class="title-row"><h3>あっ、悪魔ちゃん 1</h3><button type="button" class="copy-title" data-title="あっ、悪魔ちゃん 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852540" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852546%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">深津 ザオウ</p><p class="meta">集英社</p><p class="isbn">9784088852546</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3544241/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge yes" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3755768" target="_blank" rel="noopener noreferrer" title="詳細ページで検出: イラストカード メロンブックス特典 描き下ろしイラストカード ※特典は無くなり次第、終了とさせて頂きます。ご了承下"><span class='store'>メロンブックス</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852546&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012817365/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge yes" href="https://kikuyashoten.myshopify.com/search?q=%E3%81%82%E3%81%A3%E3%80%81%E6%82%AA%E9%AD%94%E3%81%A1%E3%82%83%E3%82%93" target="_blank" rel="noopener noreferrer" title="公式特典ページで確認: 描き下ろし / イラストカード"><span class='store'>喜久屋書店</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852546" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852546" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-11" data-card-id="11" data-search="あわいの焔刃 1 溶五郎 丸梅 千代子 集英社 アワイノホムラ トケゴロウ マルウメ チヨコ あわいのほむら awainohomura とけごろう まるうめ ちよこ tokegoroumaruumechiyoko あ a わ wa い i の no 焔 刃 1 1 あわいの焔刃 1 awaino1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2553/9784088852553_1_10.jpg?_ex=200x200" data-title="あわいの焔刃 1" data-publisher="集英社" data-date="2026/09/04 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2553/9784088852553_1_10.jpg?_ex=200x200" alt="あわいの焔刃 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/09/04 (金)</p><div class="title-row"><h3>あわいの焔刃 1</h3><button type="button" class="copy-title" data-title="あわいの焔刃 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852559" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852553%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">溶五郎/丸梅 千代子</p><p class="meta">集英社</p><p class="isbn">9784088852553</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3544242/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784088852553&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852553&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://ecs.toranoana.jp/tora/ec/item/200012817366/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>とらのあな</span><span class='status'>通常/なし</span></a><a class="badge yes" href="https://kikuyashoten.myshopify.com/search?q=%E3%81%82%E3%82%8F%E3%81%84%E3%81%AE%E7%84%94%E5%88%83" target="_blank" rel="noopener noreferrer" title="公式特典ページで確認: イラストカード"><span class='store'>喜久屋書店</span><span class='status'>特典あり</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852553" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852553" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel" id="month-2026-10" data-month="2026-10" data-total="3" data-yes="0" data-no="18" data-todo="3" role="tabpanel" hidden><section class="day-block" data-publisher="集英社"><h2 class="day-label">集英社<span class="count">3作品</span></h2><div class="card-grid"><article class="card" id="comic-card-12" data-card-id="12" data-search="HAL FORMULA 1 寺坂 研人 集英社 ハル フォーミュラ テラサカ ケント はる ふぉーみゅら harufuomyura てらさか けんと terasakakento h h a a l l f f o o r r m m u u 1 1 hal formula 1 halformula1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2652/9784088852652.gif?_ex=200x200" data-title="HAL FORMULA 1" data-publisher="集英社" data-date="2026/10/02 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2652/9784088852652.gif?_ex=200x200" alt="HAL FORMULA 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/10/02 (金)</p><div class="title-row"><h3>HAL FORMULA 1</h3><button type="button" class="copy-title" data-title="HAL FORMULA 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852656" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852652%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">寺坂 研人</p><p class="meta">集英社</p><p class="isbn">9784088852652</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3569540/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3808416" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852652&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=HAL%20FORMULA" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=HAL%20FORMULA" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852652" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852652" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-13" data-card-id="13" data-search="アニマルシグナル 1 筒井 大志 春原 ロビンソン 集英社 アニマルシグナル ツツイ タイシ ハルハラ ロビンソン あにまるしぐなる animarushigunaru つつい たいし はるはら ろびんそん tsutsuitaishiharuhararobinson あ a に ni ま ma る ru し shi ぐ gu な na 1 1 あにまるしぐなる 1 animarushigunaru1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2690/9784088852690.gif?_ex=200x200" data-title="アニマルシグナル 1" data-publisher="集英社" data-date="2026/10/02 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2690/9784088852690.gif?_ex=200x200" alt="アニマルシグナル 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/10/02 (金)</p><div class="title-row"><h3>アニマルシグナル 1</h3><button type="button" class="copy-title" data-title="アニマルシグナル 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852699" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852690%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">筒井 大志/春原 ロビンソン</p><p class="meta">集英社</p><p class="isbn">9784088852690</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3569543/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3808414" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852690&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E3%82%A2%E3%83%8B%E3%83%9E%E3%83%AB%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%82%A2%E3%83%8B%E3%83%9E%E3%83%AB%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852690" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852690" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-14" data-card-id="14" data-search="ルノリータ 1 棉 きのし 集英社 ルノリータ ワタ キノシ るのりーた runorita わた きのし watakinoshi る ru の no り ri ー た ta 1 1 るのりーた 1 runorita1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2621/9784088852621.gif?_ex=200x200" data-title="ルノリータ 1" data-publisher="集英社" data-date="2026/10/02 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/2621/9784088852621.gif?_ex=200x200" alt="ルノリータ 1" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/10/02 (金)</p><div class="title-row"><h3>ルノリータ 1</h3><button type="button" class="copy-title" data-title="ルノリータ 1">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4088852621" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784088852621%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">棉 きのし</p><p class="meta">集英社</p><p class="isbn">9784088852621</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3569656/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3808417" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784088852621&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当商品カードに特典表記はありません。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E3%83%AB%E3%83%8E%E3%83%AA%E3%83%BC%E3%82%BF" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%83%AB%E3%83%8E%E3%83%AA%E3%83%BC%E3%82%BF" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784088852621" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784088852621" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel" id="month-2026-11" data-month="2026-11" data-total="3" data-yes="0" data-no="15" data-todo="6" role="tabpanel" hidden><section class="day-block" data-publisher="集英社"><h2 class="day-label">集英社<span class="count">1作品</span></h2><div class="card-grid"><article class="card" id="comic-card-15" data-card-id="15" data-search="男一匹ガキ大将 1 本宮ひろ志漫画大全集001 本宮 ひろ志 集英社 オトコイッピキガキダイショウ モトミヤヒロシマンガダイゼンシュウ001 モトミヤ ヒロシ おとこいっぴきがきだいしょう もとみやひろしまんがだいぜんしゅう001 otokoippikigakidaishoumotomiyahiroshimangadaizenshuu001 もとみや ひろし motomiyahiroshi おとこ otoko だん dan なん nan いち ichi ひと hito 匹 が ga き ki だい dai たい tai おお oo 将 1 1 ほん hon もと moto みや miya きゅう kyuu ぐう guu ひ hi ろ ro 志 漫 画 ぜん zen すべ sube 集 0 0" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0016/9784087930016.gif?_ex=200x200" data-title="男一匹ガキ大将 1 本宮ひろ志漫画大全集001" data-publisher="集英社" data-date="2026/11/19 (木)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/0016/9784087930016.gif?_ex=200x200" alt="男一匹ガキ大将 1 本宮ひろ志漫画大全集001" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/11/19 (木)</p><div class="title-row"><h3>男一匹ガキ大将 1 本宮ひろ志漫画大全集001</h3><button type="button" class="copy-title" data-title="男一匹ガキ大将 1 本宮ひろ志漫画大全集001">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4087930017" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784087930016%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">本宮 ひろ志</p><p class="meta">集英社</p><p class="isbn">9784087930016</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3587838/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784087930016&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784087930016&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E7%94%B7%E4%B8%80%E5%8C%B9%E3%82%AC%E3%82%AD%E5%A4%A7%E5%B0%86%201%20%E6%9C%AC%E5%AE%AE%E3%81%B2%E3%82%8D%E5%BF%97%E6%BC%AB%E7%94%BB%E5%A4%A7%E5%85%A8%E9%9B%86001" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E7%94%B7%E4%B8%80%E5%8C%B9%E3%82%AC%E3%82%AD%E5%A4%A7%E5%B0%86%201%20%E6%9C%AC%E5%AE%AE%E3%81%B2%E3%82%8D%E5%BF%97%E6%BC%AB%E7%94%BB%E5%A4%A7%E5%85%A8%E9%9B%86001" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784087930016" target="_blank" rel="noopener noreferrer" title="商品タイトルに特典表記はありません。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784087930016" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section>
+<section class="day-block" data-publisher="講談社"><h2 class="day-label">講談社<span class="count">2作品</span></h2><div class="card-grid"><article class="card" id="comic-card-16" data-card-id="16" data-search="Still you 1 西尾 上 講談社 スティル ユー1 ニシオ カミ すてぃる ゆー1 suteiruyu1 にしお かみ nishiokami s s t t i i l l y y o o u u 1 1 still you 1 stillyou1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/8976/9784065458976_1_4.jpg?_ex=200x200" data-title="Still you(1)" data-publisher="講談社" data-date="2026/11/06 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/8976/9784065458976_1_4.jpg?_ex=200x200" alt="Still you(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/11/06 (金)</p><div class="title-row"><h3>Still you(1)</h3><button type="button" class="copy-title" data-title="Still you(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065458978" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065458976%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">西尾 上</p><p class="meta">講談社</p><p class="isbn">9784065458976</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3588228/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784065458976&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065458976&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=Still%20you" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=Still%20you" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065458976" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065458976" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-17" data-card-id="17" data-search="海皇紀 序伝 起 1 川原 正敏 講談社 カイオウキ ジョデン キ1 カワハラ マサトシ かいおうき じょでん き1 kaioukijodenki1 かわはら まさとし kawaharamasatoshi うみ umi かい kai 皇 紀 序 でん den つた tsuta 起 1 1 うみ皇紀 序でん 起 1 umiden1 うみ皇紀 序つた 起 1 umitsuta1 かい皇紀 序でん 起 1 kaiden1 かい皇紀 序つた 起 1 kaitsuta1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3414/9784065453414_1_2.jpg?_ex=200x200" data-title="海皇紀 序伝 起(1)" data-publisher="講談社" data-date="2026/11/06 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3414/9784065453414_1_2.jpg?_ex=200x200" alt="海皇紀 序伝 起(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/11/06 (金)</p><div class="title-row"><h3>海皇紀 序伝 起(1)</h3><button type="button" class="copy-title" data-title="海皇紀 序伝 起(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065453410" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065453414%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">川原 正敏</p><p class="meta">講談社</p><p class="isbn">9784065453414</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3588227/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784065453414&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065453414&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E6%B5%B7%E7%9A%87%E7%B4%80%20%E5%BA%8F%E4%BC%9D%20%E8%B5%B7" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E6%B5%B7%E7%9A%87%E7%B4%80%20%E5%BA%8F%E4%BC%9D%20%E8%B5%B7" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065453414" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065453414" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+<div class="month-panel" id="month-2026-12" data-month="2026-12" data-total="3" data-yes="0" data-no="15" data-todo="6" role="tabpanel" hidden><section class="day-block" data-publisher="講談社"><h2 class="day-label">講談社<span class="count">3作品</span></h2><div class="card-grid"><article class="card" id="comic-card-18" data-card-id="18" data-search="シノベども 1 榎木 公瓶 講談社 シノベドモ1 エノキ コウヘイ しのべども1 shinobedomo1 えのき こうへい enokikouhei し shi の no べ be ど do も mo 1 1 しのべども 1 shinobedomo1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/1167/9784065461167_1_3.jpg?_ex=200x200" data-title="シノベども(1)" data-publisher="講談社" data-date="2026/12/04 (金)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/1167/9784065461167_1_3.jpg?_ex=200x200" alt="シノベども(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/12/04 (金)</p><div class="title-row"><h3>シノベども(1)</h3><button type="button" class="copy-title" data-title="シノベども(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065461162" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065461167%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">榎木 公瓶</p><p class="meta">講談社</p><p class="isbn">9784065461167</p><div class="badges"><a class="badge todo" href="https://www.animate-onlineshop.jp/products/list.php?mode=search&amp;smt=9784065461167" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/pd/）を特定できませんでした。"><span class='store'>アニメイト</span><span class='status'>未確認</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784065461167&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065461167&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E3%82%B7%E3%83%8E%E3%83%99%E3%81%A9%E3%82%82" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%82%B7%E3%83%8E%E3%83%99%E3%81%A9%E3%82%82" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065461167" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065461167" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-19" data-card-id="19" data-search="イジメとカエルとママと復讐 1 原田 重光 小林 拓己 講談社 イジメトカエルトママトフクシュウ1 ハラダ シゲミツ コバヤシ タクミ いじめとかえるとままとふくしゅう1 ijimetokaerutomamatofukushuu1 はらだ しげみつ こばやし たくみ haradashigemitsukobayashitakumi い i じ ji め me と to か ka え e る ru ま ma 復 讐 1 1 いじめとかえるとままと復讐 1 ijimetokaerutomamato1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/7482/9784065447482_1_2.jpg?_ex=200x200" data-title="イジメとカエルとママと復讐(1)" data-publisher="講談社" data-date="2026/12/07 (月)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/7482/9784065447482_1_2.jpg?_ex=200x200" alt="イジメとカエルとママと復讐(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/12/07 (月)</p><div class="title-row"><h3>イジメとカエルとママと復讐(1)</h3><button type="button" class="copy-title" data-title="イジメとカエルとママと復讐(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065447488" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065447482%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">原田 重光/小林 拓己</p><p class="meta">講談社</p><p class="isbn">9784065447482</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3489877/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.melonbooks.co.jp/detail/detail.php?product_id=3786495" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>メロンブックス</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065447482&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E3%82%A4%E3%82%B8%E3%83%A1%E3%81%A8%E3%82%AB%E3%82%A8%E3%83%AB%E3%81%A8%E3%83%9E%E3%83%9E%E3%81%A8%E5%BE%A9%E8%AE%90" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E3%82%A4%E3%82%B8%E3%83%A1%E3%81%A8%E3%82%AB%E3%82%A8%E3%83%AB%E3%81%A8%E3%83%9E%E3%83%9E%E3%81%A8%E5%BE%A9%E8%AE%90" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065447482" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065447482" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article><article class="card" id="comic-card-20" data-card-id="20" data-search="武者嶽園 1 業務用餅 講談社 ムシャガクエン1 ギョウムヨウモチ むしゃがくえん1 mushagakuen1 ぎょうむようもち gyoumuyoumochi ぶ bu たけ take しゃ sha もの mono 嶽 園 1 1 ぶしゃ嶽園 1 busha1 ぶもの嶽園 1 bumono1 たけしゃ嶽園 1 takesha1 たけもの嶽園 1 takemono1" data-cover="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/9850/9784065459850.gif?_ex=200x200" data-title="武者嶽園(1)" data-publisher="講談社" data-date="2026/12/07 (月)"><div class="cover-col"><div class="cover"><img src="https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/9850/9784065459850.gif?_ex=200x200" alt="武者嶽園(1)" loading="lazy" referrerpolicy="no-referrer" onerror="const p=this.parentElement; p.classList.add('ph'); p.innerHTML='<span>書影なし</span>';"></div><p class="credit">出典: 楽天ブックス</p><p class="credit">Supported by Rakuten Developers</p></div><div class="card-body"><p class="date-chip">2026/12/07 (月)</p><div class="title-row"><h3>武者嶽園(1)</h3><button type="button" class="copy-title" data-title="武者嶽園(1)">📋 コピー</button></div><div class="ext-links"><a class="ext amazon" href="https://www.amazon.co.jp/dp/4065459850" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a><a class="ext rakuten" href="https://hb.afl.rakuten.co.jp/hgc/572ba700.47899dc1.572ba701.aed1b8df/?pc=https%3A%2F%2Fbooks.rakuten.co.jp%2Fsearch%3Fsitem%3D9784065459850%26g%3D001" target="_blank" rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a></div><p class="meta">業務用餅</p><p class="meta">講談社</p><p class="isbn">9784065459850</p><div class="badges"><a class="badge no" href="https://www.animate-onlineshop.jp/pd/3574408/" target="_blank" rel="noopener noreferrer" title="詳細ページに特典情報はありません。"><span class='store'>アニメイト</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://www.melonbooks.co.jp/search/search.php?name=9784065459850&amp;text_type=all" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（detail.php?product_id=）を特定できませんでした。"><span class='store'>メロンブックス</span><span class='status'>未確認</span></a><a class="badge no" href="https://www.gamers.co.jp/products/list.php?mode=search&amp;smt=9784065459850&amp;spc=4" target="_blank" rel="noopener noreferrer" title="該当作品の商品カードが見つかりませんでした。"><span class='store'>ゲーマーズ</span><span class='status'>通常/なし</span></a><a class="badge todo" href="https://ecs.toranoana.jp/tora/ec/app/catalog/list/?searchWord=%E6%AD%A6%E8%80%85%E5%B6%BD%E5%9C%92" target="_blank" rel="noopener noreferrer" title="検索結果から一致する商品詳細（/tora/ec/item/）を特定できませんでした。"><span class='store'>とらのあな</span><span class='status'>未確認</span></a><a class="badge no" href="https://kikuyashoten.myshopify.com/search?q=%E6%AD%A6%E8%80%85%E5%B6%BD%E5%9C%92" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>喜久屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.kinokuniya.co.jp/f/dsg-01-9784065459850" target="_blank" rel="noopener noreferrer" title="該当商品のタイトル見出しが見つかりませんでした。"><span class='store'>紀伊國屋書店</span><span class='status'>通常/なし</span></a><a class="badge no" href="https://www.search.kumabook.com/kumazawa/html/products/list?mode=books&amp;name=9784065459850" target="_blank" rel="noopener noreferrer" title="公式特典ページに該当タイトルはありません。"><span class='store'>くまざわ書店</span><span class='status'>通常/なし</span></a></div></div></article></div></section></div>
+    <p class="empty" id="search-empty" hidden>一致する作品がありません。</p>
+  </main>
+  <div class="ad-container ad-footer">
+    <p class="ad-pr">PR</p>
+    <div class="ad-slot"><!-- 下部広告スペース -->広告スペース</div>
+  </div>
+  <nav class="pager" id="pager" aria-label="ページ送り" hidden>
+    <button type="button" class="pager-btn" id="pager-prev">前へ</button>
+    <div class="pager-pages" id="pager-pages"></div>
+    <button type="button" class="pager-btn" id="pager-next">次へ</button>
+  </nav>
+  <footer class='api-credit'>Supported by Rakuten Developers</footer>
+  <button type="button" class="back-to-top" id="back-to-top" aria-label="TOPに戻る">
+    <span class="back-to-top-icon" aria-hidden="true">↑</span>
+    <span class="back-to-top-label">TOPに戻る</span>
+  </button>
+  <script>
+    document.querySelectorAll(".copy-title").forEach(function (btn) {
+      var label = "📋 コピー";
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-title") || "";
+        var done = function () {
+          btn.textContent = "コピー完了！";
+          btn.classList.add("done");
+          setTimeout(function () {
+            btn.textContent = label;
+            btn.classList.remove("done");
+          }, 1200);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            fallbackCopy(text); done();
+          });
+        } else {
+          fallbackCopy(text); done();
+        }
+      });
+    });
+    function fallbackCopy(text) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    (function () {
+      var input = document.getElementById("comic-search");
+      var clearBtn = document.getElementById("search-clear");
+      var goBtn = document.getElementById("search-go");
+      var suggest = document.getElementById("search-suggest");
+      var hit = document.getElementById("search-hit");
+      var empty = document.getElementById("search-empty");
+      var pager = document.getElementById("pager");
+      var pagerPages = document.getElementById("pager-pages");
+      var pagerPrev = document.getElementById("pager-prev");
+      var pagerNext = document.getElementById("pager-next");
+      var cluster = input ? input.closest(".search-cluster") : null;
+      var PAGE_SIZE = 50;
+      var currentPage = 1;
+      var monthState = {};
+      var MAX_SUGGEST = 8;
+      function fold(s) {
+        s = String(s || "").normalize("NFKC").toLowerCase();
+        var out = "";
+        for (var i = 0; i < s.length; i++) {
+          var c = s.charCodeAt(i);
+          out += (c >= 0x30A1 && c <= 0x30F6) ? String.fromCharCode(c - 0x60) : s.charAt(i);
+        }
+        return out.replace(/[\s・\/／\-−_.,.'"「」『』()（）\[\]]+/g, "");
+      }
+      function activePanel() {
+        return document.querySelector(".month-panel.is-active") || document.querySelector(".month-panel");
+      }
+      function panelTotal() {
+        var panel = activePanel();
+        return panel ? parseInt(panel.getAttribute("data-total") || "0", 10) : 0;
+      }
+      function cards() {
+        var panel = activePanel();
+        if (!panel) return [];
+        return Array.prototype.slice.call(panel.querySelectorAll(".card"));
+      }
+      function monthKey() {
+        var panel = activePanel();
+        return panel ? (panel.getAttribute("data-month") || "default") : "default";
+      }
+      function saveMonthState() {
+        monthState[monthKey()] = {
+          page: currentPage,
+          query: input ? input.value : ""
+        };
+      }
+      function updateLegend() {
+        var panel = activePanel();
+        if (!panel) return;
+        var yes = document.getElementById("legend-yes");
+        var no = document.getElementById("legend-no");
+        var todo = document.getElementById("legend-todo");
+        if (yes) yes.textContent = "特典あり " + (panel.getAttribute("data-yes") || "0");
+        if (no) no.textContent = "通常/なし " + (panel.getAttribute("data-no") || "0");
+        if (todo) todo.textContent = "未確認 " + (panel.getAttribute("data-todo") || "0");
+      }
+      function switchMonth(id) {
+        saveMonthState();
+        document.querySelectorAll(".month-panel").forEach(function (panel) {
+          var on = panel.getAttribute("data-month") === id;
+          panel.classList.toggle("is-active", on);
+          panel.hidden = !on;
+        });
+        document.querySelectorAll(".month-tab").forEach(function (tab) {
+          var on = tab.getAttribute("data-month") === id;
+          tab.classList.toggle("is-active", on);
+          tab.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        var st = monthState[id] || { page: 1, query: "" };
+        currentPage = st.page || 1;
+        if (input) input.value = st.query || "";
+        updateLegend();
+        renderList();
+        closeSuggest();
+      }
+      function closeSuggest() {
+        if (!suggest) return;
+        suggest.hidden = true;
+        suggest.innerHTML = "";
+      }
+      function matchingCards() {
+        var q = fold(input && input.value);
+        return cards().filter(function (card) {
+          return !q || fold(card.getAttribute("data-search") || "").indexOf(q) !== -1;
+        });
+      }
+      function applyFilter() {
+        currentPage = 1;
+        renderList();
+        saveMonthState();
+        closeSuggest();
+      }
+      function renderList() {
+        var matched = matchingCards();
+        var pages = Math.max(1, Math.ceil(matched.length / PAGE_SIZE) || 1);
+        if (matched.length === 0) pages = 1;
+        if (currentPage > pages) currentPage = pages;
+        if (currentPage < 1) currentPage = 1;
+        var start = (currentPage - 1) * PAGE_SIZE;
+        var visible = matched.slice(start, start + PAGE_SIZE);
+        var visibleSet = {};
+        visible.forEach(function (card) { visibleSet[card.id] = true; });
+        var matchSet = {};
+        matched.forEach(function (card) { matchSet[card.id] = true; });
+        var panel = activePanel();
+        if (panel) {
+          panel.querySelectorAll(".day-block").forEach(function (sec) {
+          var nMatch = 0;
+          var nVis = 0;
+          sec.querySelectorAll(".card").forEach(function (card) {
+            if (matchSet[card.id]) nMatch++;
+            var onPage = !!visibleSet[card.id];
+            card.hidden = !onPage;
+            if (onPage) nVis++;
+          });
+          sec.hidden = nVis === 0;
+          var countEl = sec.querySelector(".count");
+          if (countEl) countEl.textContent = nMatch + "作品";
+          });
+        }
+        var total = panelTotal();
+        var shownFrom = matched.length ? start + 1 : 0;
+        var shownTo = start + visible.length;
+        if (hit) {
+          if (!matched.length) hit.textContent = total + "件中 0件表示";
+          else if (matched.length <= PAGE_SIZE) hit.textContent = total + "件中 " + matched.length + "件表示";
+          else hit.textContent = matched.length + "件中 " + shownFrom + "〜" + shownTo + "件表示";
+        }
+        if (empty) empty.hidden = matched.length !== 0;
+        renderPager(pages, matched.length);
+      }
+      function renderPager(pages, matchedCount) {
+        if (!pager || !pagerPages) return;
+        if (matchedCount === 0) {
+          pager.hidden = true;
+          return;
+        }
+        pager.hidden = false;
+        var windowSize = 3;
+        var startP = Math.max(1, currentPage - 1);
+        var endP = Math.min(pages, startP + windowSize - 1);
+        startP = Math.max(1, endP - windowSize + 1);
+        pagerPages.innerHTML = "";
+        for (var p = startP; p <= endP; p++) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "pager-btn" + (p === currentPage ? " is-current" : "");
+          btn.textContent = String(p);
+          if (p === currentPage) btn.setAttribute("aria-current", "page");
+          btn.setAttribute("data-page", String(p));
+          pagerPages.appendChild(btn);
+        }
+        if (pagerPrev) pagerPrev.disabled = currentPage <= 1;
+        if (pagerNext) pagerNext.disabled = currentPage >= pages;
+      }
+      function goToPage(page) {
+        currentPage = page;
+        renderList();
+        saveMonthState();
+        var main = document.querySelector("main");
+        if (main && main.scrollIntoView) main.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      function updateSuggest() {
+        if (!suggest) return;
+        var q = fold(input.value);
+        if (!q) {
+          closeSuggest();
+          return;
+        }
+        var matches = matchingCards().slice(0, MAX_SUGGEST);
+        if (!matches.length) {
+          closeSuggest();
+          return;
+        }
+        suggest.innerHTML = matches.map(function (card) {
+          var id = card.id || "";
+          var cover = card.getAttribute("data-cover") || "";
+          var thumb = cover
+            ? '<img class="suggest-thumb" src="' + cover.replace(/"/g, "") + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+            : '<div class="suggest-thumb ph">書影</div>';
+          return '<li role="option"><button type="button" class="suggest-item" data-target="' + id + '">' +
+            thumb + '<span><span class="suggest-title"></span><span class="suggest-meta"></span></span></button></li>';
+        }).join("");
+        Array.prototype.forEach.call(suggest.querySelectorAll(".suggest-item"), function (btn, i) {
+          var card = matches[i];
+          btn.querySelector(".suggest-title").textContent = card.getAttribute("data-title") || "";
+          btn.querySelector(".suggest-meta").textContent =
+            (card.getAttribute("data-publisher") || "") + " · " + (card.getAttribute("data-date") || "");
+        });
+        suggest.hidden = false;
+      }
+      function focusCard(id) {
+        var card = document.getElementById(id);
+        if (!card) return;
+        var matched = matchingCards();
+        var idx = matched.indexOf(card);
+        if (idx < 0) idx = 0;
+        currentPage = Math.floor(idx / PAGE_SIZE) + 1;
+        renderList();
+        closeSuggest();
+        card.classList.remove("focus-flash");
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.setTimeout(function () {
+          card.classList.add("focus-flash");
+        }, 80);
+        window.setTimeout(function () {
+          card.classList.remove("focus-flash");
+        }, 3200);
+      }
+      if (pagerPrev) pagerPrev.addEventListener("click", function () {
+        if (currentPage > 1) goToPage(currentPage - 1);
+      });
+      if (pagerNext) pagerNext.addEventListener("click", function () {
+        var pages = Math.max(1, Math.ceil(matchingCards().length / PAGE_SIZE));
+        if (currentPage < pages) goToPage(currentPage + 1);
+      });
+      if (pagerPages) pagerPages.addEventListener("click", function (ev) {
+        var btn = ev.target.closest("[data-page]");
+        if (!btn) return;
+        goToPage(parseInt(btn.getAttribute("data-page"), 10) || 1);
+      });
+      document.querySelectorAll(".month-tab").forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          var id = tab.getAttribute("data-month") || "";
+          if (!id || id === monthKey()) return;
+          switchMonth(id);
+        });
+      });
+      var topBtn = document.getElementById("back-to-top");
+      if (topBtn) {
+        var onScroll = function () {
+          if (window.scrollY > 300) topBtn.classList.add("is-visible");
+          else topBtn.classList.remove("is-visible");
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        onScroll();
+        topBtn.addEventListener("click", function () {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+      if (!input) {
+        renderList();
+        return;
+      }
+      input.addEventListener("input", updateSuggest);
+      input.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          applyFilter();
+        } else if (ev.key === "Escape") {
+          closeSuggest();
+        }
+      });
+      if (goBtn) goBtn.addEventListener("click", applyFilter);
+      if (suggest) {
+        suggest.addEventListener("click", function (ev) {
+          var btn = ev.target.closest(".suggest-item");
+          if (!btn) return;
+          ev.preventDefault();
+          focusCard(btn.getAttribute("data-target") || "");
+        });
+      }
+      if (clearBtn) {
+        clearBtn.addEventListener("click", function () {
+          input.value = "";
+          input.focus();
+          applyFilter();
+        });
+      }
+      document.addEventListener("click", function (ev) {
+        if (cluster && cluster.contains(ev.target)) return;
+        closeSuggest();
+      });
+      renderList();
+    })();
+  </script>
+</body>
+</html>
