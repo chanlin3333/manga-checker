@@ -21,6 +21,7 @@ from manga_checker.readings import search_index_text
 from manga_checker.stores import STORES
 
 SITE_TITLE = "新刊コミック第１巻　書店特典チェック"
+ASSET_VER = "book1"
 
 _STATUS_CLASS = {
     STATUS_YES: "yes",
@@ -366,13 +367,14 @@ def _html_document(
             "各書店の公式商品ページにてご確認ください。"
         )
     return f"""<!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-build="{ASSET_VER}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store">
   <title>{html.escape(heading)}</title>
-  <link rel="icon" type="image/png" href="icon-3.png">
-  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="icon" type="image/png" href="icon-3.png?v={ASSET_VER}">
+  <link rel="shortcut icon" href="favicon.ico?v={ASSET_VER}">
   <style>
     :root {{
       --bg: #efe7dc;
