@@ -6,19 +6,25 @@ from manga_checker.favicon import render_favicon, write_favicon
 
 
 class FaviconTests(unittest.TestCase):
-    def test_is_32px_transparent_png_without_letters(self) -> None:
+    def test_is_32px_speech_bubble_with_one(self) -> None:
         img = render_favicon()
         self.assertEqual(img.size, (32, 32))
         self.assertEqual(img.mode, "RGBA")
         px = img.load()
         self.assertEqual(px[0, 0], (0, 0, 0, 0))
         self.assertEqual(px[31, 0], (0, 0, 0, 0))
-        self.assertEqual(px[0, 31], (0, 0, 0, 0))
         self.assertEqual(px[31, 31], (0, 0, 0, 0))
-        colors = {px[x, y] for y in range(32) for x in range(32) if px[x, y][3]}
-        self.assertTrue(any(c[2] > c[0] and c[3] == 255 for c in colors))
-        opaque = [(x, y) for y in range(32) for x in range(32) if px[x, y][3]]
-        self.assertGreater(len(opaque), 80)
+        colors = {px[x, y][:3] for y in range(32) for x in range(32) if px[x, y][3]}
+        self.assertIn((0, 0, 0), colors)
+        self.assertIn((255, 255, 255), colors)
+        self.assertTrue(any(px[x, y][3] == 0 for y in range(32) for x in range(32)))
+        digit_black = sum(
+            1
+            for y in range(6, 20)
+            for x in range(12, 20)
+            if px[x, y][:3] == (0, 0, 0) and px[x, y][3] == 255
+        )
+        self.assertGreater(digit_black, 20)
 
     def test_write_png(self) -> None:
         with TemporaryDirectory() as tmp:
