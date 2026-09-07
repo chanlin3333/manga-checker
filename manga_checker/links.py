@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
-from manga_checker.config import affiliate_settings, rakuten_affiliate_id
+from manga_checker.config import affiliate_settings
 from manga_checker.covers import isbn13_to_isbn10
 
 
@@ -45,15 +45,21 @@ def amazon_url(isbn: str = "", title: str = "") -> str:
     return url
 
 
+DEFAULT_RAKUTEN_AFFILIATE_ID = "5746de47.1f89351a.5746de48.8130d10a"
+
+
 def rakuten_url(isbn: str = "", title: str = "") -> str:
     digits = isbn13(isbn)
-    if len(digits) == 13:
-        url = "https://books.rakuten.co.jp/search?" + urlencode({"sitem": digits, "g": "001"})
+    if len(digits) >= 10:
+        dest = "https://books.rakuten.co.jp/search?g=001&sitem=" + quote(digits, safe="")
     elif title:
-        url = "https://books.rakuten.co.jp/search?" + urlencode({"sitem": title, "g": "001"})
+        dest = "https://books.rakuten.co.jp/search?g=001&sitem=" + quote(title, safe="")
     else:
-        url = "https://books.rakuten.co.jp/"
-    aid = rakuten_affiliate_id()
-    if aid and url.startswith("https://books.rakuten.co.jp/"):
-        url = "https://hb.afl.rakuten.co.jp/hgc/" + quote(aid, safe="") + "/?pc=" + quote(url, safe="")
-    return url
+        dest = "https://books.rakuten.co.jp/"
+    aid = DEFAULT_RAKUTEN_AFFILIATE_ID
+    return (
+        "https://hb.afl.rakuten.co.jp/hgc/"
+        + aid
+        + "/?pc="
+        + quote(dest, safe="")
+    )

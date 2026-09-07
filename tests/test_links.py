@@ -18,8 +18,20 @@ class LinkTests(unittest.TestCase):
 
         config._CACHE = {"amazon_tag": "", "rakuten_affiliate_id": ""}
         url = rakuten_url("9784000000000", "タイトル")
-        self.assertIn("books.rakuten.co.jp/search", url)
+        self.assertIn("hb.afl.rakuten.co.jp/hgc/5746de47.1f89351a.5746de48.8130d10a", url)
+        self.assertIn("pc=", url)
+        self.assertIn("books.rakuten.co.jp", url)
         self.assertIn("9784000000000", url)
+        self.assertIn("g%3D001", url)
+        self.assertLess(url.find("g%3D001"), url.find("sitem%3D9784000000000"))
+
+    def test_rakuten_keeps_default_affiliate_id(self) -> None:
+        from manga_checker import config
+
+        config._CACHE = {"amazon_tag": "", "rakuten_affiliate_id": "aaaa.bbbb.cccc.dddd"}
+        url = rakuten_url("9784000000000")
+        self.assertIn("hb.afl.rakuten.co.jp/hgc/5746de47.1f89351a.5746de48.8130d10a", url)
+        self.assertNotIn("aaaa.bbbb.cccc.dddd", url)
 
     def test_amazon_tag_appended(self) -> None:
         from manga_checker import config
