@@ -253,7 +253,7 @@ def _card_html(report: ComicReport, card_id: int = 0) -> str:
         f'<a class="ext rakuten" href="{html.escape(rakuten)}" target="_blank" '
         'rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a>'
         f'<a class="ext mercari" href="{html.escape(mercari)}" target="_blank" '
-        'rel="noopener noreferrer"><span class="mark" aria-hidden="true">m</span>メルカリ</a>'
+        'rel="noopener noreferrer"><span class="mark" aria-hidden="true">m</span>mercari</a>'
         "</div>"
         "</div>"
     )
@@ -858,15 +858,16 @@ def _html_document(
       border-radius: 3px;
     }}
     .ext.mercari {{
-      background: #ffffff;
-      color: #ff0211;
-      border: 1px solid #e4ddd4;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+      background: #ff0211;
+      color: #ffffff;
+      font-weight: 800;
     }}
     .ext.mercari .mark {{
       background: #4ba7ee;
-      color: #ff0211;
+      color: #ffffff;
       border-radius: 3px;
+      font-family: "Nunito", "Varela Round", "Segoe UI", "Trebuchet MS", sans-serif;
+      font-weight: 800;
     }}
     .badges {{
       display: grid;
