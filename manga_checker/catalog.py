@@ -1,8 +1,8 @@
 """今月のコミック書誌を取得する。
 
 優先順位:
-1. 楽天ブックス書籍検索API（発売中・予約を含む）
-2. 国立国会図書館サーチ OpenSearch（漫画分類 NDC 726）※楽天APIが使えないときのフォールバック
+1. 楽天ブックス書籍検索API（発売中・予約を含む。各月は初日〜末日、ページ送りは次ページがなくなるまで）
+2. 国立国会図書館サーチ OpenSearch（漫画分類 NDC 726。月初日〜末日。楽天未設定時）
 3. openBD（ISBNから書誌・書影を補完）
 4. 任意の CSV（手動追加）
 """
@@ -20,6 +20,7 @@ from urllib.parse import urlencode
 
 import requests
 
+from manga_checker.dates import month_query_range
 from manga_checker.http import make_session
 from manga_checker.models import Comic
 from manga_checker.openbd import enrich_with_openbd
@@ -67,8 +68,9 @@ COMIC_PUBLISHERS = (
 )
 
 
-def month_range(year: int, month: int) -> str:
-    return f"{year:04d}-{month:02d}"
+def month_range(year: int, month: int) -> tuple[str, str]:
+    """対象月の検索範囲（初日〜末日）。YYYY-MM-DD。"""
+    return month_query_range(year, month)
 
 
 def fetch_month_volume_ones(
@@ -99,9 +101,12 @@ def fetch_month_volume_ones(
         print("楽天アプリIDまたはaccessKeyが未設定のため、NDL/openBDにフォールバックします。")
 
     if not used_rakuten:
-        ndl = fetch_ndl_comics(year, month, session=session)
-        print(f"NDLから漫画書誌を {len(ndl)} 件取得しました（月内全件）。")
-        comics.extend(c for c in ndl if is_volume_one(c.title, c.volume))
+        try:
+            ndl = fetch_ndl_comics(year, month, session=session)
+            print(f"NDLから漫画書誌を {len(ndl)} 件取得しました（月内全件）。")
+            comics.extend(c for c in ndl if is_volume_one(c.title, c.volume))
+        except Exception as exc:
+            print(f"NDLの取得に失敗しました（{exc}）。")
     if extra_csv and extra_csv.exists():
         comics.extend(load_csv(extra_csv))
     comics = _dedupe(comics)
@@ -122,7 +127,9 @@ def fetch_months_volume_ones(
     extra_csv: Path | None = None,
     session: requests.Session | None = None,
 ) -> dict[tuple[int, int], list[Comic]]:
-    """対象の複数月を、楽天走査は1回（必要なら在庫補完をさらに1回）行って月別に返す。"""
+    """対象の複数月を取得する。楽天はページ上限まで送り、未完了月は分割走査する。
+    各月は暦の初日〜末日を範囲とする。楽天が使えないときは NDL も同じ範囲で取得する。
+    """
     if not months:
         return {}
     session = session or make_session()
@@ -144,7 +151,11 @@ def fetch_months_volume_ones(
 
     if not used_rakuten:
         for year, month in months:
-            ndl = fetch_ndl_comics(year, month, session=session)
+            try:
+                ndl = fetch_ndl_comics(year, month, session=session)
+            except Exception as exc:
+                print(f"NDLの取得に失敗しました（{year}年{month}月: {exc}）。")
+                continue
             print(f"NDLから{year}年{month}月の漫画書誌を {len(ndl)} 件取得しました。")
             result[(year, month)].extend(c for c in ndl if is_volume_one(c.title, c.volume))
 
@@ -185,22 +196,32 @@ def fetch_ndl_comics(
     出版社分割と『第1巻』系タイトル検索を足して取りこぼしを減らす。
     """
     session = session or make_session()
-    ym = month_range(year, month)
-    comics, total = _fetch_ndl_range(session, ym, ym, page_size=page_size)
-    print(f"NDL月次クエリ: {len(comics)} 件取得 / 報告 {total} 件")
+    date_from, date_until = month_range(year, month)
+    comics, total = _fetch_ndl_range(session, date_from, date_until, page_size=page_size)
+    print(
+        f"NDL月次クエリ（{date_from}〜{date_until}）: {len(comics)} 件取得 / 報告 {total} 件"
+    )
 
     if total > 500 or len(comics) >= 500:
         print("500件上限のため、出版社別に追加取得します。")
         for publisher in COMIC_PUBLISHERS:
             extra, _ = _fetch_ndl_range(
-                session, ym, ym, page_size=page_size, extra_params={"publisher": publisher}
+                session,
+                date_from,
+                date_until,
+                page_size=page_size,
+                extra_params={"publisher": publisher},
             )
             comics.extend(extra)
             time.sleep(0.3)
 
     for title_q in VOLUME_ONE_TITLE_QUERIES:
         extra, _ = _fetch_ndl_range(
-            session, ym, ym, page_size=page_size, extra_params={"title": title_q}
+            session,
+            date_from,
+            date_until,
+            page_size=page_size,
+            extra_params={"title": title_q},
         )
         comics.extend(extra)
         time.sleep(0.3)
@@ -233,7 +254,16 @@ def _fetch_ndl_range(
         if extra_params:
             params.update(extra_params)
         url = f"{NDL_OPENSEARCH}?{urlencode(params)}"
-        response = session.get(url, timeout=30)
+        response = None
+        for attempt in range(5):
+            response = session.get(url, timeout=30)
+            if response.status_code == 429:
+                wait = 4 + attempt * 4
+                print(f"NDL 429 Too Many Requests。{wait}秒待って再試行します（{attempt + 1}/5）")
+                time.sleep(wait)
+                continue
+            break
+        assert response is not None
         response.raise_for_status()
         root = ET.fromstring(response.content)
         total_el = root.find("channel/openSearch:totalResults", NS)

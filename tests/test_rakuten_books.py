@@ -243,7 +243,7 @@ class PaginateLimitTests(unittest.TestCase):
 
         months = [(2026, 9), (2026, 10), (2026, 11), (2026, 12)]
         with patch("manga_checker.rakuten_books._request", side_effect=fake_request):
-            buckets, reached_older, hit_cap = _paginate_window(
+            buckets, reached_older, hit_cap, reached_past = _paginate_window(
                 None,
                 months,
                 0,
@@ -257,6 +257,7 @@ class PaginateLimitTests(unittest.TestCase):
         self.assertEqual(calls["n"], 5)
         self.assertTrue(reached_older)
         self.assertFalse(hit_cap)
+        self.assertIn((2026, 9), reached_past)
 
         with patch("manga_checker.rakuten_books.rakuten_configured", return_value=True), patch(
             "manga_checker.rakuten_books._request", side_effect=fake_request
@@ -499,3 +500,47 @@ class PaginateLimitTests(unittest.TestCase):
             if extra.get("availability") != "1" and extra.get("booksGenreId") == COMIC_GENRE_ID
         ]
         self.assertEqual(len(genre_pages), 100)
+
+    def test_partial_past_month_still_triggers_instock_scan(self) -> None:
+        extras: list[dict[str, str]] = []
+
+        def fake_request(_session, extra):
+            extras.append(dict(extra))
+            if extra.get("availability") == "1":
+                page = int(extra["page"])
+                sales = "2026年08月01日" if page == 1 else "2026年07月01日"
+                title = "八月月初 (1)" if page == 1 else "七月の本 (1)"
+                return {
+                    "pageCount": 2,
+                    "Items": [
+                        {
+                            "title": title,
+                            "publisherName": "集英社",
+                            "salesDate": sales,
+                            "isbn": f"97842{page:08d}",
+                        }
+                    ],
+                }
+            page = int(extra["page"])
+            return {
+                "pageCount": 100,
+                "Items": [
+                    {
+                        "title": f"八月末 {page} (1)",
+                        "publisherName": "集英社",
+                        "salesDate": "2026年08月31日",
+                        "isbn": f"97843{page:08d}",
+                    }
+                ],
+            }
+
+        with patch("manga_checker.rakuten_books.rakuten_configured", return_value=True), patch(
+            "manga_checker.rakuten_books._request", side_effect=fake_request
+        ):
+            result = fetch_rakuten_volume_ones_by_month(
+                [(2026, 6), (2026, 7), (2026, 8)], session=None, delay_sec=0
+            )
+        self.assertTrue(any(extra.get("availability") == "1" for extra in extras))
+        self.assertTrue(any("八月末" in c.title for c in result[(2026, 8)]))
+        self.assertTrue(any("八月月初" in c.title for c in result[(2026, 8)]))
+        self.assertFalse(any(extra.get("publisherName") for extra in extras))

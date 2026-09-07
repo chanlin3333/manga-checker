@@ -1,7 +1,7 @@
 import unittest
 import xml.etree.ElementTree as ET
 
-from manga_checker.catalog import _parse_ndl_item
+from manga_checker.catalog import _parse_ndl_item, month_range
 
 
 SAMPLE = """
@@ -31,6 +31,10 @@ class CatalogParseTests(unittest.TestCase):
         self.assertEqual(comic.volume, "第1巻")
         self.assertEqual(comic.isbn, "9784000000000")
         self.assertEqual(comic.publisher, "出版社")
+
+    def test_month_range_is_first_through_last_day(self) -> None:
+        self.assertEqual(month_range(2026, 8), ("2026-08-01", "2026-08-31"))
+        self.assertEqual(month_range(2026, 2), ("2026-02-01", "2026-02-28"))
 
 
 if __name__ == "__main__":

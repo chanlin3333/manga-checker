@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import calendar
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 _WEEKDAYS = "月火水木金土日"
 
@@ -82,6 +83,35 @@ def parse_release_date(raw: str) -> date | None:
 def format_year_month(year: int, month: int) -> str:
     """タブ・説明文用の「2026年10月」形式（月はゼロ埋めしない）。"""
     return f"{year}年{month}月"
+
+
+def month_bounds(year: int, month: int) -> tuple[date, date]:
+    """対象月の初日と末日（暦の月。日数引き算は使わない）。"""
+    if not 1 <= month <= 12:
+        raise ValueError("month は 1〜12 です。")
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
+
+
+def month_datetime_span(year: int, month: int) -> tuple[datetime, datetime]:
+    """検索範囲: 月初 00:00:00 〜 月末 23:59:59。"""
+    start, end = month_bounds(year, month)
+    return datetime.combine(start, time.min), datetime.combine(end, time(23, 59, 59))
+
+
+def month_query_range(year: int, month: int) -> tuple[str, str]:
+    """API の from/until 用（YYYY-MM-DD）。その月の初日〜末日。"""
+    start, end = month_bounds(year, month)
+    return start.isoformat(), end.isoformat()
+
+
+def date_in_month(raw: str, year: int, month: int) -> bool | None:
+    """年月日まで分かる値はその月の初日〜末日に入るか。判定不能なら None。"""
+    parsed = parse_release_date(raw)
+    if parsed is None:
+        return None
+    start, end = month_bounds(year, month)
+    return start <= parsed <= end
 
 
 def add_months(year: int, month: int, delta: int) -> tuple[int, int]:

@@ -9,16 +9,29 @@ import unicodedata
 import requests
 
 from manga_checker.config import rakuten_access_key, rakuten_affiliate_id, rakuten_application_id
-from manga_checker.dates import prefer_pubdate
+from manga_checker.dates import date_in_month, month_bounds, prefer_pubdate
 from manga_checker.http import make_session
 from manga_checker.models import Comic
-from manga_checker.publishers import publisher_sort_key
+from manga_checker.publishers import PUBLISHER_ORDER, publisher_sort_key
 from manga_checker.volume import is_volume_one, normalize_text
 
 BOOKS_BOOK_SEARCH = "https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404"
 COMIC_GENRE_ID = "001001"
 RAKUTEN_MAX_PAGES = 100
 RAKUTEN_HITS_PER_PAGE = 30
+# ジャンル走査が100ページ上限で月の先頭まで届かないときの分割キー
+RAKUTEN_SPLIT_PUBLISHERS = tuple(
+    dict.fromkeys(
+        [
+            *PUBLISHER_ORDER,
+            "ＫＡＤＯＫＡＷＡ",
+            "新潮社",
+            "幻冬舎コミックス",
+            "リブレ",
+            "大洋図書",
+        ]
+    )
+)
 _SALES_YM = re.compile(r"(?P<y>\d{4})\s*年\s*(?P<m>\d{1,2})\s*月")
 _SALES_YMD = re.compile(r"(?P<y>\d{4})\s*年\s*(?P<m>\d{1,2})\s*月\s*(?P<d>\d{1,2})\s*日")
 _SALES_ISO = re.compile(r"(?P<y>\d{4})[-/.](?P<m>\d{1,2})(?:[-/.](?P<d>\d{1,2}))?")
@@ -48,11 +61,11 @@ def fetch_rakuten_volume_ones_by_month(
     delay_sec: float = 0.85,
     max_items: int = 0,
 ) -> dict[tuple[int, int], list[Comic]]:
-    """発売日降順のジャンル走査を1回行い、第1巻を各月へ振り分ける。
+    """発売日降順のジャンル走査を行い、第1巻を各月（初日〜末日）へ振り分ける。
 
-    Books API に発売日範囲パラメータはない。100ページ上限で対象期間の先頭まで
-    遡れないときだけ、予約（遠い発売日）を除いた在庫商品を同じく1回走査して補完する。
-    出版社別ループや、月ごとに新しい順を最初からやり直す走査は行わない。
+    Books API に発売日範囲パラメータはない。100ページ上限で対象月の先頭（1日）まで
+    遡れない月は、件数が残っていても未完了とみなし、在庫走査と出版社分割で取り切る。
+    「発売済みだからスキップ」はしない。
     """
     del max_items
     if not months:
@@ -62,37 +75,65 @@ def fetch_rakuten_volume_ones_by_month(
     session = session or make_session()
     start = min(months)
     end = max(months)
+    first_day, _ = month_bounds(*start)
+    _, last_day = month_bounds(*end)
     print(
-        f"楽天ブックス: コミックジャンル {COMIC_GENRE_ID} を発売日の新しい順で1回走査します。"
-        f"（{start[0]}年{start[1]}月〜{end[0]}年{end[1]}月。"
+        f"楽天ブックス: コミックジャンル {COMIC_GENRE_ID} を発売日の新しい順で走査します。"
+        f"（対象 {first_day.isoformat()} 00:00:00 〜 {last_day.isoformat()} 23:59:59。"
         f"1ページ最大{RAKUTEN_HITS_PER_PAGE}件 / 最大{RAKUTEN_MAX_PAGES}ページ。"
-        f"対象期間より前の発売日に達した時点で終了）"
+        f"各月の初日より前の発売日に達するまでページ送り）"
     )
-    buckets, reached_older, hit_page_cap = _paginate_window(
+    buckets, reached_older, hit_page_cap, reached_past = _paginate_window(
         session,
         months,
         delay_sec,
         extra={"booksGenreId": COMIC_GENRE_ID},
         max_pages=RAKUTEN_MAX_PAGES,
     )
-    if hit_page_cap and not reached_older:
-        missing = [key for key in months if not buckets.get(key)]
-        if missing:
-            miss_start, miss_end = min(missing), max(missing)
-            print(
-                f"楽天ブックス: {RAKUTEN_MAX_PAGES}ページ上限のため "
-                f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
-                "に届いていません。予約を除く在庫商品（availability=1）を1回走査して補完します。"
-            )
-            extra_buckets, _, _ = _paginate_window(
+    incomplete = _incomplete_months(months, reached_older, hit_page_cap, reached_past)
+    if incomplete:
+        miss_start, miss_end = min(incomplete), max(incomplete)
+        print(
+            f"楽天ブックス: {RAKUTEN_MAX_PAGES}ページ上限のため "
+            f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
+            "の月初まで届いていません（既存件数があっても補完します）。"
+            "予約を除く在庫商品（availability=1）を走査します。"
+        )
+        try:
+            extra_buckets, reached_older, hit_page_cap, reached_past = _paginate_window(
                 session,
-                missing,
+                incomplete,
                 delay_sec,
                 extra={"booksGenreId": COMIC_GENRE_ID, "availability": "1"},
                 max_pages=RAKUTEN_MAX_PAGES,
             )
-            for key in missing:
-                buckets[key].extend(extra_buckets.get(key, []))
+        except Exception as exc:
+            print(f"楽天ブックス: 在庫走査をスキップします（{exc}）。")
+        else:
+            _extend_buckets(buckets, extra_buckets)
+            incomplete = _incomplete_months(
+                incomplete, reached_older, hit_page_cap, reached_past
+            )
+    if incomplete:
+        miss_start, miss_end = min(incomplete), max(incomplete)
+        print(
+            f"楽天ブックス: 在庫走査でも "
+            f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
+            "の月初まで未到達のため、出版社別にページ送りして全件を集めます。"
+        )
+        for publisher in RAKUTEN_SPLIT_PUBLISHERS:
+            try:
+                extra_buckets, _, _, _ = _paginate_window(
+                    session,
+                    incomplete,
+                    delay_sec,
+                    extra={"booksGenreId": COMIC_GENRE_ID, "publisherName": publisher},
+                    max_pages=RAKUTEN_MAX_PAGES,
+                )
+            except Exception as exc:
+                print(f"楽天ブックス: 出版社「{publisher}」の走査をスキップします（{exc}）。")
+                continue
+            _extend_buckets(buckets, extra_buckets)
     result: dict[tuple[int, int], list[Comic]] = {}
     for year, month in months:
         volume_ones = [
@@ -105,8 +146,9 @@ def fetch_rakuten_volume_ones_by_month(
             key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title)
         )
         result[(year, month)] = volume_ones
+        first, last = month_bounds(year, month)
         print(
-            f"楽天ブックス: {year}年{month}月 "
+            f"楽天ブックス: {year}年{month}月（{first.isoformat()}〜{last.isoformat()}） "
             f"{len(buckets.get((year, month), []))}件 → 第1巻 {len(volume_ones)}件"
         )
     return result
@@ -253,7 +295,7 @@ def _paginate_month(
 ) -> list[Comic]:
     """発売日の新しい順に走査し、対象月の書誌を返す。"""
     del collected, max_items, stop_if
-    buckets, _, _ = _paginate_window(
+    buckets, *_ = _paginate_window(
         session,
         [(year, month)],
         delay_sec,
@@ -264,6 +306,26 @@ def _paginate_month(
     return buckets.get((year, month), [])
 
 
+def _extend_buckets(
+    dest: dict[tuple[int, int], list[Comic]],
+    src: dict[tuple[int, int], list[Comic]],
+) -> None:
+    for key, comics in src.items():
+        dest.setdefault(key, []).extend(comics)
+
+
+def _incomplete_months(
+    months: list[tuple[int, int]],
+    reached_older: bool,
+    hit_page_cap: bool,
+    reached_past: set[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """ページ上限で月初より前まで辿れなかった月。空でも『揃った』とはみなさない。"""
+    if reached_older or not hit_page_cap:
+        return []
+    return [key for key in months if key not in reached_past]
+
+
 def _paginate_window(
     session: requests.Session,
     months: list[tuple[int, int]],
@@ -271,58 +333,56 @@ def _paginate_window(
     extra: dict[str, str],
     stop_on_older: bool = True,
     max_pages: int = 100,
-) -> tuple[dict[tuple[int, int], list[Comic]], bool, bool]:
-    """発売日降順を走査し、対象期間の各月へ振り分ける。
+) -> tuple[dict[tuple[int, int], list[Comic]], bool, bool, set[tuple[int, int]]]:
+    """発売日降順を、次ページがなくなるか上限まで走査し、対象月へ振り分ける。
 
     Returns:
-        buckets, reached_older (対象開始月より前のページに到達), hit_page_cap (APIページ上限)
+        buckets, reached_older, hit_page_cap, reached_past
+        reached_past: その月より古い発売日のページを既に見た月（= その月は降順で取り切った）
     """
     month_set = set(months)
     start_bound = min(months)
     end_bound = max(months)
-    unparsed_key = months[0]
     buckets: dict[tuple[int, int], list[Comic]] = {key: [] for key in months}
     consecutive_empty = 0
     reached_older = False
+    reached_past: set[tuple[int, int]] = set()
     last_page = 0
+    api_page_count = max_pages
     for page in range(1, max_pages + 1):
         payload = _request(session, {**extra, "page": str(page)})
         items = _items(payload)
-        page_count = _page_count(payload)
+        api_page_count = _page_count(payload, cap=max_pages)
         last_page = page
         if not items:
             consecutive_empty += 1
             print(
-                f"楽天ブックス取得中: ページ {page}/{page_count} "
+                f"楽天ブックス取得中: ページ {page}/{api_page_count} "
                 f"(0件, 空ページ継続 {consecutive_empty})"
             )
-            if consecutive_empty >= 3 or page >= page_count:
+            if consecutive_empty >= 3 or page >= api_page_count:
                 break
             time.sleep(delay_sec)
             continue
         consecutive_empty = 0
         sample = str(items[0].get("salesDate") or "")
         first_ym = _first_usable_year_month(items)
+        if first_ym:
+            for ym in month_set:
+                if first_ym < ym:
+                    reached_past.add(ym)
+        stop_after_page = False
         if stop_on_older and first_ym and first_ym < start_bound:
             reached_older = True
+            reached_past.update(month_set)
+            stop_after_page = True
             print(
-                f"楽天ブックス取得中: ページ {page}/{page_count} "
-                f"(先頭salesDate={sample} が対象期間より前のため走査終了)"
+                f"楽天ブックス取得中: ページ {page}/{api_page_count} "
+                f"(先頭salesDate={sample} が対象期間より前のため、当ページ取り込み後に走査終了)"
             )
-            break
         added_by_month: dict[tuple[int, int], int] = {key: 0 for key in months}
         for item in items:
-            sales = str(item.get("salesDate") or "")
-            parsed = sales_year_month(sales)
-            if parsed is not None and _usable_year_month(sales) is None:
-                continue
-            ym = _usable_year_month(sales)
-            if ym is None:
-                target = unparsed_key if sales_in_month(sales, *unparsed_key) else None
-            elif ym in month_set:
-                target = ym
-            else:
-                target = None
+            target = _bucket_for_item(item, months, month_set)
             if target is None:
                 continue
             comic = parse_rakuten_item(item)
@@ -335,28 +395,53 @@ def _paginate_window(
             f"{year}/{month:02d}+{added_by_month[(year, month)]}" for year, month in months
         )
         print(
-            f"楽天ブックス取得中: ページ {page}/{page_count} "
+            f"楽天ブックス取得中: ページ {page}/{api_page_count} "
             f"({len(items)}件, 期間内+{added_total} [{counts}]"
             f", 先頭salesDate={sample})"
         )
-        if page >= page_count:
+        if stop_after_page:
+            break
+        if page >= api_page_count:
             if first_ym and first_ym > end_bound:
                 print("  ※ pageCount 上限に達しましたが、まだ対象期間より新しい発売日です。")
             break
         time.sleep(delay_sec)
-    hit_page_cap = last_page >= max_pages and not reached_older
-    return buckets, reached_older, hit_page_cap
+    hit_page_cap = last_page >= max_pages and api_page_count >= max_pages and not reached_older
+    return buckets, reached_older, hit_page_cap, reached_past
 
 
-def _page_count(payload: dict) -> int:
+def _bucket_for_item(
+    item: dict,
+    months: list[tuple[int, int]],
+    month_set: set[tuple[int, int]],
+) -> tuple[int, int] | None:
+    sales = str(item.get("salesDate") or "")
+    parsed = sales_year_month(sales)
+    if parsed is not None and _usable_year_month(sales) is None:
+        return None
+    ym = _usable_year_month(sales)
+    if ym is not None:
+        if ym not in month_set:
+            return None
+        in_month = date_in_month(sales, ym[0], ym[1])
+        if in_month is False:
+            return None
+        return ym
+    for year, month in months:
+        if sales_in_month(sales, year, month):
+            return (year, month)
+    return None
+
+
+def _page_count(payload: dict, cap: int = RAKUTEN_MAX_PAGES) -> int:
     raw = payload.get("pageCount")
     try:
         value = int(raw)
     except (TypeError, ValueError):
-        return RAKUTEN_MAX_PAGES
+        return cap
     if value <= 0:
-        return RAKUTEN_MAX_PAGES
-    return min(value, RAKUTEN_MAX_PAGES)
+        return cap
+    return min(value, cap)
 
 
 def _search_params(extra: dict[str, str]) -> dict[str, str]:
@@ -383,11 +468,15 @@ def _search_params(extra: dict[str, str]) -> dict[str, str]:
 def _request(session: requests.Session, extra: dict[str, str]) -> dict:
     params = _search_params(extra)
     last_error: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             response = session.get(BOOKS_BOOK_SEARCH, params=params, timeout=30)
             if response.status_code == 429:
                 time.sleep(4 + attempt * 2)
+                continue
+            if response.status_code >= 500:
+                last_error = RuntimeError(f"楽天API HTTP {response.status_code}: {response.text[:300]}")
+                time.sleep(3 + attempt * 3)
                 continue
             if response.status_code >= 400:
                 try:

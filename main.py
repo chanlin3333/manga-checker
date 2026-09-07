@@ -78,7 +78,7 @@ def main() -> None:
         windows = iter_month_offsets(args.year, args.month, before=3, after=3)
         active_period = (args.year, args.month)
     labels = "、".join(format_year_month(year, month) for year, month in windows)
-    print(f"書誌を取得しています… {labels}（楽天APIは1回の走査で期間内を振り分けます。--limit は月ごとの出力件数です）")
+    print(f"書誌を取得しています… {labels}（各月は初日〜末日。楽天は次ページがなくなるまで取得し、不足月は分割走査します。--limit は月ごとの出力件数です）")
     if args.fetch:
         print("各書店の特典ページを取得して判定します（時間がかかります。スキップは --no-fetch）。")
     else:
