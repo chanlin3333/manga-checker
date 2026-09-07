@@ -174,23 +174,11 @@ def write_html(
         for store in STORES
         if store.privilege_index_url
     )
-    named_months = [(y, m) for y, m, _ in month_panels if y and m]
-    if len(named_months) > 1:
-        labels = "、".join(format_year_month(y, m) for y, m in named_months)
-        ay, am, _ = month_panels[active_index]
-        current = format_year_month(ay, am) if ay and am else format_year_month(*named_months[0])
-        summary = (
-            "新タイトルの【第1巻】の発売日のみにスポットを当て、"
-            "各書店の限定特典情報をまとめたチェッカーサイトです。"
-            f"{labels}の第1巻を月タブで切り替えられます。初期表示は{current}です。"
-            "各月は出版社優先順 → 発売日順です。"
-        )
-    else:
-        summary = (
-            "新タイトルの【第1巻】の発売日のみにスポットを当て、"
-            "各書店の限定特典情報をまとめたチェッカーサイトです。"
-            f"第1巻 {active_total} 作品。出版社優先順 → 発売日順です。"
-        )
+    summary = (
+        "新タイトルの【第1巻】の発売日のみにスポットを当て、"
+        "各書店の限定特典情報をまとめたチェッカーサイトです。"
+        "各月は出版社優先順 → 発売日順です。"
+    )
     disclaimer = (
         "各書店の表記ゆれや仕様変更により、自動検知に不安定な部分"
         "（特典があるのに『未確認』となる等）が生じる場合がございます。"
@@ -368,7 +356,7 @@ def _html_document(
         summary = (
             "新タイトルの【第1巻】の発売日のみにスポットを当て、"
             "各書店の限定特典情報をまとめたチェッカーサイトです。"
-            f"第1巻 {total} 作品。出版社優先順 → 発売日順です。"
+            "各月は出版社優先順 → 発売日順です。"
         )
     if not disclaimer:
         disclaimer = (

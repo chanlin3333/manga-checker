@@ -217,7 +217,8 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn("monthState", html)
         self.assertLess(html.find("month-tabs"), html.find("comic-search"))
         self.assertIn('data-month="2026-09" aria-selected="true"', html)
-        self.assertIn("初期表示は2026年9月です。", html)
+        self.assertNotIn("月タブで切り替えられます", html)
+        self.assertNotIn("初期表示は", html)
 
     def test_month_tabs_always_include_year_and_open_on_current(self) -> None:
         panels = []
@@ -249,8 +250,8 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn(">2026年12月<", html)
         self.assertIn(">2027年1月<", html)
         self.assertIn(">2027年2月<", html)
-        self.assertIn("2026年11月、2026年12月、2027年1月、2027年2月", html)
-        self.assertIn("初期表示は2027年1月です。", html)
+        self.assertNotIn("2026年11月、2026年12月、2027年1月、2027年2月", html)
+        self.assertNotIn("初期表示は", html)
         self.assertIn('class="month-panel is-active" id="month-2027-01"', html)
         self.assertIn('class="month-tab is-active" role="tab" data-month="2027-01"', html)
         self.assertNotIn(">1月<", html)
