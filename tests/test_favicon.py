@@ -28,7 +28,7 @@ class FaviconTests(unittest.TestCase):
 
     def test_write_png(self) -> None:
         with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "favicon.png"
+            path = Path(tmp) / "icon-1.png"
             write_favicon(path)
             self.assertTrue(path.is_file())
             self.assertGreater(path.stat().st_size, 50)

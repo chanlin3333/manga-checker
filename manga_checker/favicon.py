@@ -49,6 +49,12 @@ def render_favicon() -> Image.Image:
 
 def write_favicon(path: Path | None = None) -> Path:
     root = Path(__file__).resolve().parent.parent
-    dest = path or (root / "favicon.png")
-    render_favicon().save(dest, format="PNG")
+    png = render_favicon()
+    dest = path or (root / "icon-1.png")
+    png.save(dest, format="PNG")
+    if path is None:
+        png.save(root / "favicon.png", format="PNG")
+        png.save(root / "favicon.ico", format="ICO", sizes=[(32, 32)])
+    elif dest.suffix.lower() == ".ico":
+        png.save(dest, format="ICO", sizes=[(32, 32)])
     return dest
