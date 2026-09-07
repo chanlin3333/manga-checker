@@ -34,8 +34,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--fetch",
-        action="store_true",
-        help="書店の検索ページを実際に取得してキーワード判定する（時間がかかります）",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="書店ページを取得して特典あり／なしを判定する（デフォルト: 有効。無効化は --no-fetch）",
     )
     parser.add_argument(
         "--limit",
@@ -78,6 +79,10 @@ def main() -> None:
         active_period = (args.year, args.month)
     labels = "、".join(format_year_month(year, month) for year, month in windows)
     print(f"書誌を取得しています… {labels}（楽天APIは1回の走査で期間内を振り分けます。--limit は月ごとの出力件数です）")
+    if args.fetch:
+        print("各書店の特典ページを取得して判定します（時間がかかります。スキップは --no-fetch）。")
+    else:
+        print("書店ページの取得はスキップします。特典欄は公式一覧の照合分を除き未確認になります。")
 
     session = make_session()
     catalog = OfficialIndex()
@@ -112,6 +117,7 @@ def main() -> None:
                     checks=check_stores(
                         comic,
                         fetch=args.fetch,
+                        delay_sec=0.45 if args.fetch else 0,
                         session=session,
                         catalog=catalog,
                     ),
