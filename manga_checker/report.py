@@ -771,10 +771,19 @@ def _html_document(
     }}
     footer.api-credit {{
       max-width: 1360px;
-      margin: 0 auto 32px;
-      padding: 0 16px 24px;
+      margin: 0 auto 8px;
+      padding: 0 16px 8px;
       color: #9a9088;
       font-size: 0.72rem;
+    }}
+    footer.affiliate-note {{
+      max-width: 1360px;
+      margin: 0 auto 48px;
+      padding: 4px 16px 28px;
+      color: #b5aea6;
+      font-size: 0.68rem;
+      line-height: 1.5;
+      text-align: center;
     }}
     .meta, .isbn {{
       margin: 0;
@@ -1087,6 +1096,7 @@ def _html_document(
     <button type="button" class="pager-btn pager-next">次へ</button>
   </nav>
   {"<footer class='api-credit'>Supported by Rakuten Developers</footer>" if rakuten_credit else ""}
+  <footer class="affiliate-note">このサイトはアフィリエイト広告（Amazonアソシエイト、楽天アフィリエイト含む）を掲載しています。</footer>
   <button type="button" class="back-to-top" id="back-to-top" aria-label="TOPに戻る">
     <span class="back-to-top-icon" aria-hidden="true">↑</span>
     <span class="back-to-top-label">TOPに戻る</span>

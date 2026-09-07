@@ -93,6 +93,8 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn("1件中 1件表示", html)
         self.assertIn("【第1巻】", html)
         self.assertIn("ご不便をおかけします", html)
+        self.assertIn("このサイトはアフィリエイト広告（Amazonアソシエイト、楽天アフィリエイト含む）を掲載しています。", html)
+        self.assertIn('class="affiliate-note"', html)
         self.assertIn('class="disclaimer"', html)
         self.assertIn("data-search=", html)
         self.assertIn("初凪ヒメリウム", html)
