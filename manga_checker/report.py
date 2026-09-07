@@ -371,7 +371,7 @@ def _html_document(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(heading)}</title>
-  <link rel="icon" type="image/png" href="icon-1.png">
+  <link rel="icon" type="image/png" href="icon-2.png">
   <link rel="shortcut icon" href="favicon.ico">
   <style>
     :root {{
