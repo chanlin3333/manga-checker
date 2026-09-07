@@ -178,14 +178,23 @@ def write_html(
         ay, am, _ = month_panels[active_index]
         current = format_year_month(ay, am) if ay and am else format_year_month(*named_months[0])
         summary = (
+            "新タイトルの【第1巻】の発売日のみにスポットを当て、"
+            "各書店の限定特典情報をまとめたチェッカーサイトです。"
             f"{labels}の第1巻を月タブで切り替えられます。初期表示は{current}です。"
-            "各月は出版社優先順 → 発売日順です。特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。"
+            "各月は出版社優先順 → 発売日順です。"
         )
     else:
         summary = (
+            "新タイトルの【第1巻】の発売日のみにスポットを当て、"
+            "各書店の限定特典情報をまとめたチェッカーサイトです。"
             f"第1巻 {active_total} 作品。出版社優先順 → 発売日順です。"
-            "特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。"
         )
+    disclaimer = (
+        "各書店の表記ゆれや仕様変更により、自動検知に不安定な部分"
+        "（特典があるのに『未確認』となる等）が生じる場合がございます。"
+        "ご不便をおかけしますが、特典の有無や配布状況の最終確認は"
+        "各書店の公式商品ページにてご確認ください。"
+    )
     path.write_text(
         _html_document(
             heading,
@@ -196,6 +205,7 @@ def write_html(
             rakuten_credit=_uses_rakuten(all_reports),
             tabs_html=tabs_html,
             summary=summary,
+            disclaimer=disclaimer,
         ),
         encoding="utf-8",
     )
@@ -343,6 +353,7 @@ def _html_document(
     rakuten_credit: bool = False,
     tabs_html: str = "",
     summary: str = "",
+    disclaimer: str = "",
 ) -> str:
     page_size = 50
     if total <= 0:
@@ -353,8 +364,16 @@ def _html_document(
         initial_hit = f"{total}件中 1〜{page_size}件表示"
     if not summary:
         summary = (
+            "新タイトルの【第1巻】の発売日のみにスポットを当て、"
+            "各書店の限定特典情報をまとめたチェッカーサイトです。"
             f"第1巻 {total} 作品。出版社優先順 → 発売日順です。"
-            "特典ありは、該当商品カードまたは公式特典ページで確認できた場合のみです。"
+        )
+    if not disclaimer:
+        disclaimer = (
+            "各書店の表記ゆれや仕様変更により、自動検知に不安定な部分"
+            "（特典があるのに『未確認』となる等）が生じる場合がございます。"
+            "ご不便をおかけしますが、特典の有無や配布状況の最終確認は"
+            "各書店の公式商品ページにてご確認ください。"
         )
     return f"""<!DOCTYPE html>
 <html lang="ja">
@@ -408,6 +427,13 @@ def _html_document(
       color: var(--muted);
       font-size: 0.9rem;
       margin: 6px 0;
+    }}
+    .disclaimer {{
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      max-width: 46rem;
+      margin: 8px 0 10px;
     }}
     .month-tabs {{
       display: flex;
@@ -909,8 +935,16 @@ def _html_document(
       justify-content: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin: 12px auto 40px;
-      padding: 4px 16px 24px;
+      margin: 12px auto 24px;
+      padding: 4px 16px 8px;
+    }}
+    .pager-top {{
+      margin: 8px auto 16px;
+      padding-bottom: 4px;
+    }}
+    .pager-bottom {{
+      margin-bottom: 40px;
+      padding-bottom: 24px;
     }}
     .pager-pages {{
       display: flex;
@@ -1010,6 +1044,7 @@ def _html_document(
     <p class="kicker">COMIC RELEASE CALENDAR</p>
     <h1>{html.escape(heading)}</h1>
     <p class="summary">{html.escape(summary)}</p>
+    <p class="disclaimer">{html.escape(disclaimer)}</p>
     <p class="legend" id="status-legend">
       凡例:
       <b class="yes" id="legend-yes">特典あり {counts.get(STATUS_YES, 0)}</b>
@@ -1039,6 +1074,11 @@ def _html_document(
     <p class="ad-pr">PR</p>
     <div class="ad-slot"><!-- 上部広告スペース（728x90等） -->広告スペース</div>
   </div>
+  <nav class="pager pager-top" id="pager-top" aria-label="ページ送り（上部）" hidden>
+    <button type="button" class="pager-btn pager-prev">前へ</button>
+    <div class="pager-pages"></div>
+    <button type="button" class="pager-btn pager-next">次へ</button>
+  </nav>
   <main>
     {body}
     <p class="empty" id="search-empty" hidden>一致する作品がありません。</p>
@@ -1047,10 +1087,10 @@ def _html_document(
     <p class="ad-pr">PR</p>
     <div class="ad-slot"><!-- 下部広告スペース -->広告スペース</div>
   </div>
-  <nav class="pager" id="pager" aria-label="ページ送り" hidden>
-    <button type="button" class="pager-btn" id="pager-prev">前へ</button>
-    <div class="pager-pages" id="pager-pages"></div>
-    <button type="button" class="pager-btn" id="pager-next">次へ</button>
+  <nav class="pager pager-bottom" id="pager" aria-label="ページ送り" hidden>
+    <button type="button" class="pager-btn pager-prev">前へ</button>
+    <div class="pager-pages"></div>
+    <button type="button" class="pager-btn pager-next">次へ</button>
   </nav>
   {"<footer class='api-credit'>Supported by Rakuten Developers</footer>" if rakuten_credit else ""}
   <button type="button" class="back-to-top" id="back-to-top" aria-label="TOPに戻る">
@@ -1097,10 +1137,7 @@ def _html_document(
       var suggest = document.getElementById("search-suggest");
       var hit = document.getElementById("search-hit");
       var empty = document.getElementById("search-empty");
-      var pager = document.getElementById("pager");
-      var pagerPages = document.getElementById("pager-pages");
-      var pagerPrev = document.getElementById("pager-prev");
-      var pagerNext = document.getElementById("pager-next");
+      var pagers = document.querySelectorAll(".pager");
       var cluster = input ? input.closest(".search-cluster") : null;
       var PAGE_SIZE = 50;
       var currentPage = 1;
@@ -1223,35 +1260,37 @@ def _html_document(
         renderPager(pages, matched.length);
       }}
       function renderPager(pages, matchedCount) {{
-        if (!pager || !pagerPages) return;
-        if (matchedCount === 0) {{
-          pager.hidden = true;
-          return;
-        }}
-        pager.hidden = false;
-        var windowSize = 3;
-        var startP = Math.max(1, currentPage - 1);
-        var endP = Math.min(pages, startP + windowSize - 1);
-        startP = Math.max(1, endP - windowSize + 1);
-        pagerPages.innerHTML = "";
-        for (var p = startP; p <= endP; p++) {{
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "pager-btn" + (p === currentPage ? " is-current" : "");
-          btn.textContent = String(p);
-          if (p === currentPage) btn.setAttribute("aria-current", "page");
-          btn.setAttribute("data-page", String(p));
-          pagerPages.appendChild(btn);
-        }}
-        if (pagerPrev) pagerPrev.disabled = currentPage <= 1;
-        if (pagerNext) pagerNext.disabled = currentPage >= pages;
+        pagers.forEach(function (nav) {{
+          if (matchedCount === 0) {{
+            nav.hidden = true;
+            return;
+          }}
+          nav.hidden = false;
+          var pagesEl = nav.querySelector(".pager-pages");
+          var prevBtn = nav.querySelector(".pager-prev");
+          var nextBtn = nav.querySelector(".pager-next");
+          if (pagesEl) {{
+            pagesEl.innerHTML = "";
+            for (var p = 1; p <= pages; p++) {{
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "pager-btn" + (p === currentPage ? " is-current" : "");
+              btn.textContent = String(p);
+              if (p === currentPage) btn.setAttribute("aria-current", "page");
+              btn.setAttribute("data-page", String(p));
+              pagesEl.appendChild(btn);
+            }}
+          }}
+          if (prevBtn) prevBtn.disabled = currentPage <= 1;
+          if (nextBtn) nextBtn.disabled = currentPage >= pages;
+        }});
       }}
       function goToPage(page) {{
         currentPage = page;
         renderList();
         saveMonthState();
-        var main = document.querySelector("main");
-        if (main && main.scrollIntoView) main.scrollIntoView({{ behavior: "smooth", block: "start" }});
+        var topPager = document.getElementById("pager-top") || document.querySelector("main");
+        if (topPager && topPager.scrollIntoView) topPager.scrollIntoView({{ behavior: "smooth", block: "start" }});
       }}
       function updateSuggest() {{
         if (!suggest) return;
@@ -1300,17 +1339,22 @@ def _html_document(
           card.classList.remove("focus-flash");
         }}, 3200);
       }}
-      if (pagerPrev) pagerPrev.addEventListener("click", function () {{
-        if (currentPage > 1) goToPage(currentPage - 1);
-      }});
-      if (pagerNext) pagerNext.addEventListener("click", function () {{
-        var pages = Math.max(1, Math.ceil(matchingCards().length / PAGE_SIZE));
-        if (currentPage < pages) goToPage(currentPage + 1);
-      }});
-      if (pagerPages) pagerPages.addEventListener("click", function (ev) {{
-        var btn = ev.target.closest("[data-page]");
-        if (!btn) return;
-        goToPage(parseInt(btn.getAttribute("data-page"), 10) || 1);
+      pagers.forEach(function (nav) {{
+        var prevBtn = nav.querySelector(".pager-prev");
+        var nextBtn = nav.querySelector(".pager-next");
+        var pagesEl = nav.querySelector(".pager-pages");
+        if (prevBtn) prevBtn.addEventListener("click", function () {{
+          if (currentPage > 1) goToPage(currentPage - 1);
+        }});
+        if (nextBtn) nextBtn.addEventListener("click", function () {{
+          var pages = Math.max(1, Math.ceil(matchingCards().length / PAGE_SIZE));
+          if (currentPage < pages) goToPage(currentPage + 1);
+        }});
+        if (pagesEl) pagesEl.addEventListener("click", function (ev) {{
+          var btn = ev.target.closest("[data-page]");
+          if (!btn) return;
+          goToPage(parseInt(btn.getAttribute("data-page"), 10) || 1);
+        }});
       }});
       document.querySelectorAll(".month-tab").forEach(function (tab) {{
         tab.addEventListener("click", function () {{

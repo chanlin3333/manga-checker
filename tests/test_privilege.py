@@ -50,8 +50,8 @@ class PrivilegeEvalTests(unittest.TestCase):
             title_for_match="初凪ヒメリウム",
             source_url="https://www.melonbooks.co.jp/search/search.php",
         )
-        self.assertEqual(status, STATUS_YES)
-        self.assertTrue("メロン限定版" in detail or "リーフレット" in detail or "特典" in detail)
+        self.assertEqual(status, STATUS_UNKNOWN)
+        self.assertIn("詳細", detail)
 
     def test_gamers_g_privilege_icon(self) -> None:
         html = """
@@ -86,11 +86,8 @@ class PrivilegeEvalTests(unittest.TestCase):
             title_for_match="初凪ヒメリウム",
             source_url="https://www.melonbooks.co.jp/search/search.php",
         )
-        self.assertEqual(status, STATUS_YES)
-        self.assertTrue(
-            "特典" in detail or "メロン限定" in detail or "アクリル" in detail,
-            detail,
-        )
+        self.assertEqual(status, STATUS_UNKNOWN)
+        self.assertIn("詳細", detail)
 
     def test_melonbooks_text_keywords(self) -> None:
         html = """
@@ -106,8 +103,7 @@ class PrivilegeEvalTests(unittest.TestCase):
             title_for_match="初凪ヒメリウム",
             source_url="https://www.melonbooks.co.jp/search/search.php",
         )
-        self.assertEqual(status, STATUS_YES, detail)
-        self.assertTrue("メロン限定版" in detail or "リーフレット" in detail, detail)
+        self.assertEqual(status, STATUS_UNKNOWN, detail)
 
     def test_melonbooks_class_only_icon_is_ignored(self) -> None:
         html = """
@@ -124,7 +120,7 @@ class PrivilegeEvalTests(unittest.TestCase):
             title_for_match="初凪ヒメリウム",
             source_url="https://www.melonbooks.co.jp/search/search.php",
         )
-        self.assertEqual(status, STATUS_NO)
+        self.assertEqual(status, STATUS_UNKNOWN)
 
     def test_kinokuniya_ignores_store_disclaimer(self) -> None:
         html = """
@@ -267,6 +263,21 @@ class MelonDetailTests(unittest.TestCase):
         )
         self.assertEqual(url, "")
 
+    def test_first_detail_url_accepts_id_query(self) -> None:
+        from manga_checker.melon import first_melon_detail_url
+
+        html = """
+        <ul class="item_list">
+          <li class="item"><a href="/detail/detail.php?id=222">初凪ヒメリウム</a></li>
+        </ul>
+        """
+        url = first_melon_detail_url(
+            html,
+            "https://www.melonbooks.co.jp/search/search.php",
+            "初凪ヒメリウム",
+        )
+        self.assertIn("product_id=222", url)
+
     def test_first_detail_url_accepts_isbn_on_card(self) -> None:
         from manga_checker.melon import first_melon_detail_url
 
@@ -397,7 +408,7 @@ class MelonDetailTests(unittest.TestCase):
             title_for_match="初凪ヒメリウム",
             source_url="https://www.melonbooks.co.jp/search/search.php",
         )
-        self.assertEqual(status, STATUS_NO)
+        self.assertEqual(status, STATUS_UNKNOWN)
 
 
 class AnimateDetailTests(unittest.TestCase):

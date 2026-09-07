@@ -11,7 +11,7 @@ from manga_checker.privilege import STATUS_NO, STATUS_UNKNOWN, STATUS_YES
 from manga_checker.title_match import listing_matches_work
 
 _DETAIL_HREF = re.compile(r"detail\.php", re.I)
-_PRODUCT_ID = re.compile(r"product_id=(\d+)", re.I)
+_PRODUCT_ID = re.compile(r"(?:[?&](?:product_)?id=)(\d+)", re.I)
 _BOX_CONCRETE = (
     "メロンブックス特典",
     "メロンブックス限定",
@@ -38,6 +38,7 @@ _PAGE_CONCRETE = (
     "メロン限定版",
     "メロン限定",
     "描き下ろしイラストカード",
+    "描き下ろし",
     "有償特典",
     "購入特典",
     "店舗特典",
@@ -46,6 +47,7 @@ _PAGE_CONCRETE = (
     "特典付",
     "特典（",
     "【特典",
+    "特典",
 )
 _ENDED = re.compile(
     r"特典.{0,12}(なし|無し|終了|ございません|ありません|お付けできません)|"
@@ -88,6 +90,7 @@ def first_melon_detail_url(
     base = page_url or "https://www.melonbooks.co.jp/"
     ranked: list[tuple[int, str]] = []
     seen: set[str] = set()
+    isbn_digits = re.sub(r"\D", "", isbn or "")
     for tag in soup.find_all("a", href=True):
         abs_url = _melon_detail_url(str(tag.get("href") or ""), base)
         if not abs_url or abs_url in seen:
@@ -97,13 +100,25 @@ def first_melon_detail_url(
         blob = " ".join(
             part for part in (tag.get_text(" ", strip=True), parent.get_text(" ", strip=True)) if part
         )
-        score = 2 if listing_matches_work(title, blob, isbn, author=author) else 0
-        ranked.append((score, abs_url))
+        blob_digits = re.sub(r"\D", "", blob)
+        score = 0
+        if isbn_digits and isbn_digits in blob_digits:
+            score += 5
+        if listing_matches_work(title, blob, isbn, author=author):
+            score += 2
+        if score:
+            ranked.append((score, abs_url))
+    ranked.sort(key=lambda item: item[0], reverse=True)
     matching = [url for score, url in ranked if score]
     if matching:
         return matching[0]
-    if allow_first and ranked:
-        return ranked[0][1]
+    if allow_first:
+        first = ""
+        for tag in soup.find_all("a", href=True):
+            first = _melon_detail_url(str(tag.get("href") or ""), base)
+            if first:
+                break
+        return first
     return ""
 
 
@@ -208,13 +223,15 @@ def _melon_detail_url(href: str, base: str) -> str:
         return ""
     abs_url = urljoin(base, href).split("#")[0]
     parsed = urlparse(abs_url)
-    product_id = ""
-    match = _PRODUCT_ID.search(abs_url)
-    if match:
-        product_id = match.group(1)
-    else:
-        product_id = (parse_qs(parsed.query).get("product_id") or [""])[0]
+    query = parse_qs(parsed.query)
+    product_id = (query.get("product_id") or query.get("id") or [""])[0]
     if not product_id:
+        match = _PRODUCT_ID.search(abs_url)
+        if match:
+            product_id = match.group(1)
+    if not product_id:
+        return ""
+    if "detail.php" not in parsed.path.lower() and not query.get("product_id"):
         return ""
     return f"https://www.melonbooks.co.jp/detail/detail.php?product_id={product_id}"
 

@@ -123,8 +123,13 @@ def evaluate_privilege(
             html, title_for_match=title_for_match, isbn=isbn, author=author
         )
     if store_id == "melonbooks" or "melonbooks.co.jp" in (source_url or ""):
-        return _evaluate_melonbooks(
-            html, title_for_match=title_for_match, isbn=isbn, author=author
+        if "detail.php" in (source_url or ""):
+            from manga_checker.melon import evaluate_melon_detail
+
+            return evaluate_melon_detail(html)
+        return (
+            STATUS_UNKNOWN,
+            "検索一覧では判定せず、一致する商品詳細ページの確認が必要です。",
         )
 
     markup = html or ""

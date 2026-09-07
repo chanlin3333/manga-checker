@@ -79,8 +79,8 @@ def _melon_isbn_url(comic: Comic) -> str:
     if not isbn:
         return ""
     return (
-        "https://www.melonbooks.co.jp/search/search.php"
-        f"?name={quote(isbn)}&text_type=all"
+        "https://www.melonbooks.co.jp/search/search.php?"
+        + urlencode({"name": isbn, "text_type": "all", "category_id": "4"})
     )
 
 
@@ -383,6 +383,9 @@ def _fetch_detail_attempts(
             if need_detail_check and not _detail_page_matches(comic, detail_resp.text):
                 continue
             status, detail = evaluate(detail_resp.text)
+            # メロンは検索カード判定を使わず、特典ありのときだけ詳細URLを返す。
+            if store_id == "melonbooks" and status != STATUS_YES:
+                return StoreCheck(store_id, name, status, detail, last_search)
             return StoreCheck(store_id, name, status, detail, detail_url)
         return StoreCheck(store_id, name, STATUS_UNKNOWN, missing, fallback_url)
     except requests.RequestException as exc:

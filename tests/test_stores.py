@@ -44,6 +44,8 @@ class StoreListTests(unittest.TestCase):
         self.assertEqual(parse_qs(animate.query).get("smt"), ["9784000000000"])
         melon = urlparse(by_id["melonbooks"])
         self.assertEqual(parse_qs(melon.query).get("name"), ["9784000000000"])
+        self.assertEqual(parse_qs(melon.query).get("text_type"), ["all"])
+        self.assertEqual(parse_qs(melon.query).get("category_id"), ["4"])
         comic_title = Comic(title="初凪ヒメリウム")
         melon_title = urlparse(
             {store.store_id: store.search_url(comic_title) for store in STORES}["melonbooks"]
@@ -121,7 +123,40 @@ class DetailFetchTests(unittest.TestCase):
                 session,
             )
         self.assertEqual(check.status, STATUS_NO)
-        self.assertIn("product_id=222", check.url)
+        self.assertIn("search.php", check.url)
+        self.assertNotIn("product_id=222", check.url)
+
+    def test_melon_picks_matching_title_not_related_privilege_card(self) -> None:
+        comic = Comic(title="息子の彼女 1")
+        search_html = """
+        <ul>
+          <li class="item"><a href="/detail/detail.php?product_id=1">息子の彼女 1</a></li>
+          <li class="item"><a href="/detail/detail.php?product_id=9">だれでも抱けるキミが好き 描き下ろしイラストカード</a></li>
+        </ul>
+        """
+        detail_html = "<div class='item_detail'><h1>息子の彼女 1</h1><p>在庫あり</p></div>"
+
+        def fake_get(url, timeout=25, **kwargs):
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = detail_html if "product_id=1" in url else search_html
+            if "product_id=9" in url:
+                resp.text = "<h1>だれでも抱けるキミが好き</h1><p>描き下ろしイラストカード</p>"
+            return resp
+
+        session = MagicMock()
+        session.get.side_effect = fake_get
+        with patch("manga_checker.stores.time.sleep"):
+            check = _fetch_melonbooks(
+                comic,
+                "https://www.melonbooks.co.jp/search/search.php?name=x",
+                session,
+            )
+        fetched = [call.args[0] for call in session.get.call_args_list]
+        self.assertTrue(any("product_id=1" in url for url in fetched))
+        self.assertFalse(any("product_id=9" in url for url in fetched))
+        self.assertEqual(check.status, STATUS_NO)
+        self.assertIn("search.php", check.url)
 
     def test_melon_isbn_search_is_tried_before_title(self) -> None:
         comic = Comic(title="ヒトナー 1", isbn="9784088852317")
@@ -159,12 +194,11 @@ class DetailFetchTests(unittest.TestCase):
         self.assertTrue(any("9784088852317" in url for url in seen))
         isbn_pos = next(i for i, url in enumerate(seen) if "9784088852317" in url)
         title_pos = next(
-            i
-            for i, url in enumerate(seen)
-            if "text_type=title" in url or "category_id=4" in url
+            i for i, url in enumerate(seen) if "text_type=title" in url
         )
         self.assertLess(isbn_pos, title_pos)
-        self.assertIn("product_id=222", check.url)
+        self.assertTrue(any("product_id=222" in url for url in seen))
+        self.assertNotIn("product_id=999", check.url)
 
     def test_melon_skips_unrelated_first_hit(self) -> None:
         comic = Comic(title="ヒトナー 1")
