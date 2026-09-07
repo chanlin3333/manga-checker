@@ -84,6 +84,7 @@ class HtmlSearchTests(unittest.TestCase):
             path = Path(tmp) / "out.html"
             write_html(reports, path, "test")
             html = path.read_text(encoding="utf-8")
+        self.assertIn('<link rel="icon" type="image/png" href="favicon.png">', html)
         self.assertIn('id="comic-search"', html)
         self.assertIn('id="search-suggest"', html)
         self.assertIn('id="search-go"', html)
