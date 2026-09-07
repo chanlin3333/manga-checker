@@ -63,3 +63,16 @@ def rakuten_url(isbn: str = "", title: str = "") -> str:
         + "/?pc="
         + quote(dest, safe="")
     )
+
+
+MERCARI_AFID = "7668762322"
+
+
+def mercari_url(title: str = "") -> str:
+    keyword = (title or "").strip()
+    return (
+        "https://jp.mercari.com/search?afid="
+        + MERCARI_AFID
+        + "&keyword="
+        + quote(keyword, safe="")
+    )

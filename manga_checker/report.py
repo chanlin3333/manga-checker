@@ -8,7 +8,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from manga_checker.dates import format_release_date, format_year_month
-from manga_checker.links import amazon_url, rakuten_url
+from manga_checker.links import amazon_url, mercari_url, rakuten_url
 from manga_checker.models import Comic, ComicReport, StoreCheck
 from manga_checker.privilege import STATUS_NO, STATUS_UNKNOWN, STATUS_YES
 from manga_checker.publishers import (
@@ -242,14 +242,19 @@ def _card_html(report: ComicReport, card_id: int = 0) -> str:
     isbn = html.escape(comic.isbn) if comic.isbn else ""
     amazon = amazon_url(comic.isbn, comic.search_query)
     rakuten = rakuten_url(comic.isbn, comic.search_query)
+    mercari = mercari_url(comic.search_query)
     release = html.escape(format_release_date(comic.pubdate))
     credit = _credit_html(comic)
     ext = (
         '<div class="ext-links">'
         f'<a class="ext amazon" href="{html.escape(amazon)}" target="_blank" '
         'rel="noopener noreferrer"><span class="mark" aria-hidden="true">a</span>Amazon</a>'
+        '<div class="ext-stack">'
         f'<a class="ext rakuten" href="{html.escape(rakuten)}" target="_blank" '
         'rel="noopener noreferrer"><span class="mark" aria-hidden="true">R</span>楽天ブックス</a>'
+        f'<a class="ext mercari" href="{html.escape(mercari)}" target="_blank" '
+        'rel="noopener noreferrer"><span class="mark" aria-hidden="true">m</span>メルカリ</a>'
+        "</div>"
         "</div>"
     )
     search_blob = html.escape(
@@ -796,6 +801,17 @@ def _html_document(
       grid-template-columns: 1fr 1fr;
       gap: 6px;
       margin: 0 0 8px;
+      align-items: start;
+    }}
+    .ext-stack {{
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }}
+    .ext-stack .ext {{
+      width: 100%;
+      box-sizing: border-box;
     }}
     .ext {{
       display: inline-flex;
@@ -839,6 +855,17 @@ def _html_document(
     .ext.rakuten .mark {{
       background: #fff;
       color: #bf0000;
+      border-radius: 3px;
+    }}
+    .ext.mercari {{
+      background: #ffffff;
+      color: #ff0211;
+      border: 1px solid #e4ddd4;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }}
+    .ext.mercari .mark {{
+      background: #4ba7ee;
+      color: #ff0211;
       border-radius: 3px;
     }}
     .badges {{
@@ -1096,7 +1123,7 @@ def _html_document(
     <button type="button" class="pager-btn pager-next">次へ</button>
   </nav>
   {"<footer class='api-credit'>Supported by Rakuten Developers</footer>" if rakuten_credit else ""}
-  <footer class="affiliate-note">このサイトはアフィリエイト広告（Amazonアソシエイト、楽天アフィリエイト含む）を掲載しています。</footer>
+  <footer class="affiliate-note">このサイトはアフィリエイト広告（Amazonアソシエイト、楽天アフィリエイト、メルカリアンバサダー含む）を掲載しています。</footer>
   <button type="button" class="back-to-top" id="back-to-top" aria-label="TOPに戻る">
     <span class="back-to-top-icon" aria-hidden="true">↑</span>
     <span class="back-to-top-label">TOPに戻る</span>

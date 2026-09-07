@@ -1,6 +1,6 @@
 import unittest
 
-from manga_checker.links import amazon_url, rakuten_url
+from manga_checker.links import amazon_url, mercari_url, rakuten_url
 
 
 class LinkTests(unittest.TestCase):
@@ -39,3 +39,12 @@ class LinkTests(unittest.TestCase):
         config._CACHE = {"amazon_tag": "mytag-22", "rakuten_affiliate_id": ""}
         url = amazon_url("9784065338339", "テスト")
         self.assertIn("tag=mytag-22", url)
+
+    def test_mercari_uses_title_keyword_and_afid(self) -> None:
+        url = mercari_url("息子の彼女")
+        self.assertTrue(url.startswith("https://jp.mercari.com/search?"))
+        self.assertIn("afid=7668762322", url)
+        self.assertIn("keyword=", url)
+        self.assertIn("%E6%81%AF%E5%AD%90%E3%81%AE%E5%BD%BC%E5%A5%B3", url)
+        self.assertNotIn("特典", url)
+        self.assertLess(url.find("afid="), url.find("keyword="))
