@@ -20,6 +20,8 @@ from manga_checker.publishers import (
 from manga_checker.readings import search_index_text
 from manga_checker.stores import STORES
 
+SITE_TITLE = "新刊コミック第１巻　書店特典チェック"
+
 _STATUS_CLASS = {
     STATUS_YES: "yes",
     STATUS_NO: "no",

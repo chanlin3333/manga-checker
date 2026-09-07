@@ -15,7 +15,7 @@ from manga_checker.http import configure_ssl, make_session
 from manga_checker.models import ComicReport
 from manga_checker.official import OfficialIndex
 from manga_checker.publishers import publisher_sort_key
-from manga_checker.report import write_csv, write_html
+from manga_checker.report import SITE_TITLE, write_csv, write_html
 from manga_checker.stores import check_stores
 
 
@@ -129,10 +129,7 @@ def main() -> None:
         all_reports.extend(reports)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    if len(windows) == 1:
-        heading = f"{format_year_month(*windows[0])} コミック第1巻 書店特典チェック"
-    else:
-        heading = "コミック第1巻 書店特典チェック"
+    heading = SITE_TITLE
     csv_path = args.out_dir / "volume1_privileges.csv"
     html_path = args.out_dir / "volume1_privileges.html"
     index_path = Path("index.html")
