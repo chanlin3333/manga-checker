@@ -21,7 +21,7 @@ from manga_checker.readings import search_index_text
 from manga_checker.stores import STORES
 
 SITE_TITLE = "新刊コミック第１巻　書店特典チェック"
-ASSET_VER = "book2"
+ASSET_VER = "mercari4"
 
 _STATUS_CLASS = {
     STATUS_YES: "yes",
@@ -892,14 +892,18 @@ def _html_document(
       border-radius: 3px;
     }}
     .ext.mercari {{
-      background: #ff0211;
-      color: #ffffff;
-      font-weight: 800;
-    }}
-    .ext.mercari .mark {{
       background: #4ba7ee;
       color: #ffffff;
-      border-radius: 3px;
+      font-weight: 800;
+      justify-content: center;
+      align-items: center;
+      border-radius: 10px;
+      letter-spacing: 0.02em;
+    }}
+    .ext.mercari .mark {{
+      background: #ff0211;
+      color: #ffffff;
+      border-radius: 4px;
       font-family: "Nunito", "Varela Round", "Segoe UI", "Trebuchet MS", sans-serif;
       font-weight: 800;
     }}

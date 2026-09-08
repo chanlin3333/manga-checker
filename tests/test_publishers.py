@@ -84,8 +84,8 @@ class HtmlSearchTests(unittest.TestCase):
             path = Path(tmp) / "out.html"
             write_html(reports, path, "test")
             html = path.read_text(encoding="utf-8")
-        self.assertIn('<link rel="icon" type="image/png" href="icon-3.png?v=book2">', html)
-        self.assertIn('data-build="book2"', html)
+        self.assertIn('<link rel="icon" type="image/png" href="icon-3.png?v=mercari4">', html)
+        self.assertIn('data-build="mercari4"', html)
         self.assertIn(
             'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"',
             html,
@@ -106,6 +106,8 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn(">mercari</a>", html)
         self.assertIn("#ff0211", html)
         self.assertIn("#4ba7ee", html)
+        self.assertRegex(html, r"\.ext\.mercari \{[^}]*background: #4ba7ee")
+        self.assertRegex(html, r"\.ext\.mercari \.mark \{[^}]*background: #ff0211")
         self.assertLess(html.find('class="ext rakuten"'), html.find('class="ext mercari"'))
         self.assertIn('class="disclaimer"', html)
         self.assertIn("data-search=", html)
