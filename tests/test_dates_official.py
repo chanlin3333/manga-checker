@@ -10,6 +10,7 @@ from manga_checker.dates import (
     month_datetime_span,
     month_query_range,
     prefer_pubdate,
+    year_month_from_pubdate,
 )
 from manga_checker.official import OfficialHit, OfficialIndex, lookup_status
 from manga_checker.privilege import STATUS_NO, STATUS_YES
@@ -88,6 +89,11 @@ class DateFormatTests(unittest.TestCase):
         start, end = month_datetime_span(2026, 6)
         self.assertEqual(start.isoformat(sep=" "), "2026-06-01 00:00:00")
         self.assertEqual(end.isoformat(sep=" "), "2026-06-30 23:59:59")
+
+    def test_year_month_from_display_and_iso_dates(self) -> None:
+        self.assertEqual(year_month_from_pubdate("2026-08-28"), (2026, 8))
+        self.assertEqual(year_month_from_pubdate("2026/08/28 (金)"), (2026, 8))
+        self.assertEqual(year_month_from_pubdate("2026.9"), (2026, 9))
 
     def test_prefer_full_openbd_date(self) -> None:
         self.assertEqual(prefer_pubdate("2026.9", "20260927"), "20260927")

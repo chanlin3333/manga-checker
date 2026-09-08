@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -20,7 +21,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from manga_checker.dates import month_query_range
+from manga_checker.dates import month_query_range, year_month_from_pubdate
 from manga_checker.http import make_session
 from manga_checker.models import Comic
 from manga_checker.openbd import enrich_with_openbd
@@ -140,16 +141,27 @@ def fetch_months_volume_ones(
             by_month = fetch_rakuten_volume_ones_by_month(months, session=session)
             for key, comics in by_month.items():
                 result[key].extend(comics)
-            used_rakuten = True
+            used_rakuten = any(result[key] for key in months)
             total = sum(len(comics) for comics in result.values())
             print(f"楽天ブックスAPIから第1巻を合計 {total} 件取得しました（発売中・予約を含む）。")
         except Exception as exc:
-            print(f"楽天ブックスAPIを利用できません（{exc}）。NDL/openBDにフォールバックします。")
-            result = {key: [] for key in months}
+            print(f"楽天ブックスAPIを利用できません（{exc}）。取得済みの月は残します。")
+            used_rakuten = any(result[key] for key in months)
     else:
         print("楽天アプリIDまたはaccessKeyが未設定のため、NDL/openBDにフォールバックします。")
 
-    if not used_rakuten:
+    if used_rakuten:
+        for year, month in months:
+            if result[(year, month)]:
+                continue
+            print(f"楽天ブックス: {year}年{month}月が空のため、単月でページ送りします。")
+            try:
+                result[(year, month)].extend(
+                    fetch_rakuten_volume_ones(year, month, session=session)
+                )
+            except Exception as exc:
+                print(f"楽天ブックス: {year}年{month}月の単月走査に失敗しました（{exc}）。")
+    else:
         for year, month in months:
             try:
                 ndl = fetch_ndl_comics(year, month, session=session)
@@ -157,7 +169,11 @@ def fetch_months_volume_ones(
                 print(f"NDLの取得に失敗しました（{year}年{month}月: {exc}）。")
                 continue
             print(f"NDLから{year}年{month}月の漫画書誌を {len(ndl)} 件取得しました。")
-            result[(year, month)].extend(c for c in ndl if is_volume_one(c.title, c.volume))
+            result[(year, month)].extend(
+                c
+                for c in ndl
+                if is_volume_one(c.title, c.volume) and _comic_matches_month(c, year, month)
+            )
 
     if extra_csv and extra_csv.exists():
         month_set = set(months)
@@ -172,8 +188,10 @@ def fetch_months_volume_ones(
         all_comics.extend(result[key])
     enrich_with_openbd(all_comics, session=session)
     fill_missing_pubdates(all_comics, session=session)
+    result = redistribute_by_pubdate(result, months)
     for year, month in months:
-        comics = result[(year, month)]
+        comics = _dedupe(result[(year, month)])
+        result[(year, month)] = comics
         comics.sort(key=lambda c: publisher_sort_key(c.publisher, c.pubdate, c.display_title))
         by_pub = Counter(canonical_publisher(c.publisher) for c in comics)
         if by_pub:
@@ -182,6 +200,53 @@ def fetch_months_volume_ones(
                 + " / ".join(f"{name} {count}件" for name, count in by_pub.items())
             )
     return result
+
+
+def redistribute_by_pubdate(
+    by_month: dict[tuple[int, int], list[Comic]],
+    months: list[tuple[int, int]],
+) -> dict[tuple[int, int], list[Comic]]:
+    """発売日の年月がタブ月と一致する作品だけを、その月へ付け替える。"""
+    month_set = set(months)
+    moved: dict[tuple[int, int], list[Comic]] = {key: [] for key in months}
+    for comics in by_month.values():
+        for comic in comics:
+            ym = year_month_from_pubdate(comic.pubdate)
+            if ym in month_set:
+                moved[ym].append(comic)
+    for year, month in months:
+        print(
+            f"発売日フィルタ: {year}年{month}月 "
+            f"{len(moved[(year, month)])} 件（タブ月と発売月が一致するもののみ）"
+        )
+    return moved
+
+
+def write_catalog_json(path: Path, by_month: dict[tuple[int, int], list[Comic]]) -> None:
+    payload = {
+        f"{year:04d}-{month:02d}": [
+            {
+                "title": comic.display_title,
+                "author": comic.author,
+                "publisher": comic.publisher,
+                "pubdate": comic.pubdate,
+                "isbn": comic.isbn,
+                "source": comic.source,
+            }
+            for comic in comics
+        ]
+        for (year, month), comics in by_month.items()
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"月別JSONを書き出しました: {path.resolve()}")
+
+
+def _comic_matches_month(comic: Comic, year: int, month: int) -> bool:
+    ym = year_month_from_pubdate(comic.pubdate)
+    if ym is None:
+        return True
+    return ym == (year, month)
 
 
 def fetch_ndl_comics(

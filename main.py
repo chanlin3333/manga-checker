@@ -9,7 +9,7 @@ from pathlib import Path
 
 from urllib3.exceptions import InsecureRequestWarning
 
-from manga_checker.catalog import fetch_months_volume_ones
+from manga_checker.catalog import fetch_months_volume_ones, write_catalog_json
 from manga_checker.dates import format_year_month, iter_month_offsets, iter_months
 from manga_checker.http import configure_ssl, make_session
 from manga_checker.models import ComicReport
@@ -89,6 +89,8 @@ def main() -> None:
     catalog.load(session)
 
     comics_by_month = fetch_months_volume_ones(windows, extra_csv=args.csv_in, session=session)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    write_catalog_json(args.out_dir / "catalog_by_month.json", comics_by_month)
 
     month_panels: list[tuple[int, int, list[ComicReport]]] = []
     all_reports: list[ComicReport] = []

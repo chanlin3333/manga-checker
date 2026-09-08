@@ -7,7 +7,7 @@ import html
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from manga_checker.dates import format_release_date, format_year_month
+from manga_checker.dates import format_release_date, format_year_month, year_month_from_pubdate
 from manga_checker.links import amazon_url, mercari_url, rakuten_url
 from manga_checker.models import Comic, ComicReport, StoreCheck
 from manga_checker.privilege import STATUS_NO, STATUS_UNKNOWN, STATUS_YES
@@ -21,7 +21,7 @@ from manga_checker.readings import search_index_text
 from manga_checker.stores import STORES
 
 SITE_TITLE = "新刊コミック第１巻　書店特典チェック"
-ASSET_VER = "book1"
+ASSET_VER = "book2"
 
 _STATUS_CLASS = {
     STATUS_YES: "yes",
@@ -118,17 +118,18 @@ def write_html(
     active_total = 0
     all_reports: list[ComicReport] = []
     for index, (year, month, items) in enumerate(month_panels):
-        all_reports.extend(items)
-        counts = Counter(check.status for report in items for check in report.checks)
+        month_items = _reports_matching_month(items, year, month)
+        all_reports.extend(month_items)
+        counts = Counter(check.status for report in month_items for check in report.checks)
         if index == active_index:
             active_counts = counts
-            active_total = len(items)
+            active_total = len(month_items)
         month_id = f"{year:04d}-{month:02d}" if year and month else f"panel-{index}"
         if year and month:
             label = format_year_month(year, month)
         else:
             label = "一覧"
-        grouped = _group_by_publisher(items)
+        grouped = _group_by_publisher(month_items)
         sections: list[str] = []
         for pub_label, pub_items in grouped:
             cards = []
@@ -149,7 +150,7 @@ def write_html(
         selected = "true" if is_active else "false"
         panels.append(
             f'<div class="month-panel{active}" id="month-{html.escape(month_id, quote=True)}" '
-            f'data-month="{html.escape(month_id, quote=True)}" data-total="{len(items)}" '
+            f'data-month="{html.escape(month_id, quote=True)}" data-total="{len(month_items)}" '
             f'data-yes="{counts.get(STATUS_YES, 0)}" data-no="{counts.get(STATUS_NO, 0)}" '
             f'data-todo="{counts.get(STATUS_UNKNOWN, 0)}" role="tabpanel"{hidden}>'
             f"{inner}"
@@ -211,6 +212,19 @@ def _sorted_reports(reports: list[ComicReport]) -> list[ComicReport]:
     )
 
 
+def _reports_matching_month(
+    reports: list[ComicReport], year: int, month: int
+) -> list[ComicReport]:
+    if not year or not month:
+        return reports
+    matched: list[ComicReport] = []
+    for report in reports:
+        ym = year_month_from_pubdate(report.comic.pubdate)
+        if ym == (year, month):
+            matched.append(report)
+    return matched
+
+
 def _group_by_publisher(reports: list[ComicReport]) -> list[tuple[str, list[ComicReport]]]:
     buckets: dict[str, list[ComicReport]] = defaultdict(list)
     for report in reports:
@@ -244,6 +258,10 @@ def _card_html(report: ComicReport, card_id: int = 0) -> str:
     rakuten = rakuten_url(comic.isbn, comic.search_query)
     mercari = mercari_url(comic.search_query)
     release = html.escape(format_release_date(comic.pubdate))
+    release_ym = year_month_from_pubdate(comic.pubdate)
+    release_month_attr = (
+        f"{release_ym[0]:04d}-{release_ym[1]:02d}" if release_ym else ""
+    )
     credit = _credit_html(comic)
     ext = (
         '<div class="ext-links">'
@@ -274,7 +292,7 @@ def _card_html(report: ComicReport, card_id: int = 0) -> str:
         f'data-cover="{cover_attr}" '
         f'data-title="{html.escape(comic.display_title, quote=True)}" '
         f'data-publisher="{html.escape(comic.publisher or "出版社未登録", quote=True)}" '
-        f'data-date="{release}">'
+        f'data-date="{release}" data-release-month="{release_month_attr}">'
         '<div class="cover-col">'
         f"{cover}"
         f"{credit}"
@@ -375,7 +393,7 @@ def _html_document(
 <html lang="ja" data-build="{ASSET_VER}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-store">
   <title>{html.escape(heading)}</title>
   <link rel="icon" type="image/png" href="icon-3.png?v={ASSET_VER}">
@@ -395,6 +413,12 @@ def _html_document(
       --todo-bg: #fff3cc;
     }}
     * {{ box-sizing: border-box; }}
+    html, body {{
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }}
     body {{
       margin: 0;
       font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
@@ -405,8 +429,11 @@ def _html_document(
     }}
     header {{
       padding: 32px 24px 12px;
+      width: 100%;
       max-width: 1360px;
       margin: 0 auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
       position: relative;
       z-index: 5;
     }}
@@ -666,7 +693,14 @@ def _html_document(
     .legend b.yes {{ color: var(--yes); }}
     .legend b.no {{ color: var(--no); }}
     .legend b.todo {{ color: var(--todo); }}
-    main {{ max-width: 1360px; margin: 0 auto 48px; padding: 0 16px; }}
+    main {{
+      width: 100%;
+      max-width: 1360px;
+      margin: 0 auto 48px;
+      padding: 0 16px;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }}
     .day-block {{ margin-top: 28px; }}
     .day-label {{
       display: flex;
@@ -1061,10 +1095,35 @@ def _html_document(
     .pager[hidden] {{
       display: none !important;
     }}
-    @media (max-width: 640px) {{
-      .card {{ grid-template-columns: 84px 1fr; min-width: 0; }}
+    @media (max-width: 768px) {{
+      header {{ padding: 20px 12px 8px; }}
+      main {{ padding: 0 10px 32px; }}
+      h1 {{ font-size: 1.28rem; }}
+      .card-grid {{
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }}
+      .card {{
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        margin-left: 0;
+        margin-right: 0;
+        padding: 10px;
+        box-sizing: border-box;
+        grid-template-columns: 84px 1fr;
+      }}
       .cover {{ width: 84px; height: 120px; }}
-      .badges {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+      .badges {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        grid-template-columns: none;
+      }}
+      .badge {{
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+      }}
       .ext {{ font-size: 0.66rem; padding: 6px 4px; }}
       .ad-slot {{ min-height: 60px; }}
     }}
@@ -1194,7 +1253,11 @@ def _html_document(
       function cards() {{
         var panel = activePanel();
         if (!panel) return [];
-        return Array.prototype.slice.call(panel.querySelectorAll(".card"));
+        var want = panel.getAttribute("data-month") || "";
+        return Array.prototype.slice.call(panel.querySelectorAll(".card")).filter(function (card) {{
+          var got = card.getAttribute("data-release-month") || "";
+          return !want || !got || got === want;
+        }});
       }}
       function monthKey() {{
         var panel = activePanel();

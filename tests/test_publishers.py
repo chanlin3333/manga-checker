@@ -84,8 +84,13 @@ class HtmlSearchTests(unittest.TestCase):
             path = Path(tmp) / "out.html"
             write_html(reports, path, "test")
             html = path.read_text(encoding="utf-8")
-        self.assertIn('<link rel="icon" type="image/png" href="icon-3.png?v=book1">', html)
-        self.assertIn('data-build="book1"', html)
+        self.assertIn('<link rel="icon" type="image/png" href="icon-3.png?v=book2">', html)
+        self.assertIn('data-build="book2"', html)
+        self.assertIn(
+            'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"',
+            html,
+        )
+        self.assertIn("@media (max-width: 768px)", html)
         self.assertIn('id="comic-search"', html)
         self.assertIn('id="search-suggest"', html)
         self.assertIn('id="search-go"', html)
@@ -229,6 +234,34 @@ class HtmlSearchTests(unittest.TestCase):
         self.assertIn('data-month="2026-09" aria-selected="true"', html)
         self.assertNotIn("月タブで切り替えられます", html)
         self.assertNotIn("初期表示は", html)
+
+    def test_wrong_month_pubdate_is_not_rendered_in_tab(self) -> None:
+        reports = [
+            ComicReport(
+                Comic(title="八月の本 1", publisher="小学館", pubdate="2026-08-28"),
+                period_year=2026,
+                period_month=9,
+            ),
+            ComicReport(
+                Comic(title="九月の本 1", publisher="集英社", pubdate="2026-09-10"),
+                period_year=2026,
+                period_month=9,
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "out.html"
+            write_html(
+                reports,
+                path,
+                "test",
+                month_panels=[(2026, 9, reports)],
+            )
+            html = path.read_text(encoding="utf-8")
+        self.assertIn("九月の本 1", html)
+        self.assertNotIn("八月の本 1", html)
+        self.assertIn('data-month="2026-09"', html)
+        self.assertIn('data-release-month="2026-09"', html)
+        self.assertIn('data-total="1"', html)
 
     def test_month_tabs_always_include_year_and_open_on_current(self) -> None:
         panels = []

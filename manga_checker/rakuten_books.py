@@ -45,7 +45,7 @@ def fetch_rakuten_volume_ones(
     year: int,
     month: int,
     session: requests.Session | None = None,
-    delay_sec: float = 0.85,
+    delay_sec: float = 1.0,
     max_items: int = 0,
 ) -> list[Comic]:
     """対象月のコミックを取り切るまで走査し、第1巻を出版社順に分別する。"""
@@ -58,7 +58,7 @@ def fetch_rakuten_volume_ones(
 def fetch_rakuten_volume_ones_by_month(
     months: list[tuple[int, int]],
     session: requests.Session | None = None,
-    delay_sec: float = 0.85,
+    delay_sec: float = 1.0,
     max_items: int = 0,
 ) -> dict[tuple[int, int], list[Comic]]:
     """発売日降順のジャンル走査を行い、第1巻を各月（初日〜末日）へ振り分ける。
@@ -83,57 +83,65 @@ def fetch_rakuten_volume_ones_by_month(
         f"1ページ最大{RAKUTEN_HITS_PER_PAGE}件 / 最大{RAKUTEN_MAX_PAGES}ページ。"
         f"各月の初日より前の発売日に達するまでページ送り）"
     )
-    buckets, reached_older, hit_page_cap, reached_past = _paginate_window(
-        session,
-        months,
-        delay_sec,
-        extra={"booksGenreId": COMIC_GENRE_ID},
-        max_pages=RAKUTEN_MAX_PAGES,
-    )
-    incomplete = _incomplete_months(months, reached_older, hit_page_cap, reached_past)
-    if incomplete:
-        miss_start, miss_end = min(incomplete), max(incomplete)
-        print(
-            f"楽天ブックス: {RAKUTEN_MAX_PAGES}ページ上限のため "
-            f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
-            "の月初まで届いていません（既存件数があっても補完します）。"
-            "予約を除く在庫商品（availability=1）を走査します。"
+    buckets: dict[tuple[int, int], list[Comic]] = {key: [] for key in months}
+    try:
+        scanned, reached_older, hit_page_cap, reached_past = _paginate_window(
+            session,
+            months,
+            delay_sec,
+            extra={"booksGenreId": COMIC_GENRE_ID},
+            max_pages=RAKUTEN_MAX_PAGES,
         )
-        try:
-            extra_buckets, reached_older, hit_page_cap, reached_past = _paginate_window(
-                session,
-                incomplete,
-                delay_sec,
-                extra={"booksGenreId": COMIC_GENRE_ID, "availability": "1"},
-                max_pages=RAKUTEN_MAX_PAGES,
+        _extend_buckets(buckets, scanned)
+        incomplete = _incomplete_months(months, reached_older, hit_page_cap, reached_past)
+        if incomplete:
+            miss_start, miss_end = min(incomplete), max(incomplete)
+            print(
+                f"楽天ブックス: {RAKUTEN_MAX_PAGES}ページ上限のため "
+                f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
+                "の月初まで届いていません（既存件数があっても補完します）。"
+                "予約を除く在庫商品（availability=1）を走査します。"
             )
-        except Exception as exc:
-            print(f"楽天ブックス: 在庫走査をスキップします（{exc}）。")
-        else:
-            _extend_buckets(buckets, extra_buckets)
-            incomplete = _incomplete_months(
-                incomplete, reached_older, hit_page_cap, reached_past
-            )
-    if incomplete:
-        miss_start, miss_end = min(incomplete), max(incomplete)
-        print(
-            f"楽天ブックス: 在庫走査でも "
-            f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
-            "の月初まで未到達のため、出版社別にページ送りして全件を集めます。"
-        )
-        for publisher in RAKUTEN_SPLIT_PUBLISHERS:
             try:
-                extra_buckets, _, _, _ = _paginate_window(
+                extra_buckets, reached_older, hit_page_cap, reached_past = _paginate_window(
                     session,
                     incomplete,
                     delay_sec,
-                    extra={"booksGenreId": COMIC_GENRE_ID, "publisherName": publisher},
+                    extra={"booksGenreId": COMIC_GENRE_ID, "availability": "1"},
                     max_pages=RAKUTEN_MAX_PAGES,
                 )
             except Exception as exc:
-                print(f"楽天ブックス: 出版社「{publisher}」の走査をスキップします（{exc}）。")
-                continue
-            _extend_buckets(buckets, extra_buckets)
+                print(f"楽天ブックス: 在庫走査をスキップします（{exc}）。")
+            else:
+                _extend_buckets(buckets, extra_buckets)
+                incomplete = _incomplete_months(
+                    incomplete, reached_older, hit_page_cap, reached_past
+                )
+        if incomplete:
+            miss_start, miss_end = min(incomplete), max(incomplete)
+            print(
+                f"楽天ブックス: 在庫走査でも "
+                f"{miss_start[0]}年{miss_start[1]}月〜{miss_end[0]}年{miss_end[1]}月 "
+                "の月初まで未到達のため、出版社別にページ送りして全件を集めます。"
+            )
+            for publisher in RAKUTEN_SPLIT_PUBLISHERS:
+                try:
+                    extra_buckets, _, _, _ = _paginate_window(
+                        session,
+                        incomplete,
+                        delay_sec,
+                        extra={"booksGenreId": COMIC_GENRE_ID, "publisherName": publisher},
+                        max_pages=RAKUTEN_MAX_PAGES,
+                    )
+                except Exception as exc:
+                    print(f"楽天ブックス: 出版社「{publisher}」の走査をスキップします（{exc}）。")
+                    continue
+                _extend_buckets(buckets, extra_buckets)
+    except Exception as exc:
+        print(
+            f"楽天ブックス: 走査を中断しました（{exc}）。"
+            f"取得済み {sum(len(v) for v in buckets.values())} 件は月別に残します。"
+        )
     result: dict[tuple[int, int], list[Comic]] = {}
     for year, month in months:
         volume_ones = [
@@ -354,6 +362,8 @@ def _paginate_window(
         items = _items(payload)
         api_page_count = _page_count(payload, cap=max_pages)
         last_page = page
+        if delay_sec:
+            time.sleep(max(delay_sec, 1.0))
         if not items:
             consecutive_empty += 1
             print(
@@ -362,7 +372,6 @@ def _paginate_window(
             )
             if consecutive_empty >= 3 or page >= api_page_count:
                 break
-            time.sleep(delay_sec)
             continue
         consecutive_empty = 0
         sample = str(items[0].get("salesDate") or "")
@@ -405,7 +414,6 @@ def _paginate_window(
             if first_ym and first_ym > end_bound:
                 print("  ※ pageCount 上限に達しましたが、まだ対象期間より新しい発売日です。")
             break
-        time.sleep(delay_sec)
     hit_page_cap = last_page >= max_pages and api_page_count >= max_pages and not reached_older
     return buckets, reached_older, hit_page_cap, reached_past
 

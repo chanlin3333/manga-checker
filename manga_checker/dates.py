@@ -105,6 +105,25 @@ def month_query_range(year: int, month: int) -> tuple[str, str]:
     return start.isoformat(), end.isoformat()
 
 
+def year_month_from_pubdate(raw: str) -> tuple[int, int] | None:
+    """発売日から (年, 月) を取る。日が無くても年月が分かれば返す。"""
+    parsed = parse_release_date(raw)
+    if parsed:
+        return parsed.year, parsed.month
+    value = (raw or "").strip()
+    match = re.search(r"(\d{4})\D+(\d{1,2})", value)
+    if match:
+        year, month = int(match.group(1)), int(match.group(2))
+        if 1 <= month <= 12:
+            return year, month
+    digits = _digits(value)
+    if len(digits) >= 6:
+        year, month = int(digits[:4]), int(digits[4:6])
+        if 1 <= month <= 12:
+            return year, month
+    return None
+
+
 def date_in_month(raw: str, year: int, month: int) -> bool | None:
     """年月日まで分かる値はその月の初日〜末日に入るか。判定不能なら None。"""
     parsed = parse_release_date(raw)

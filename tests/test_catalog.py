@@ -1,7 +1,8 @@
 import unittest
 import xml.etree.ElementTree as ET
 
-from manga_checker.catalog import _parse_ndl_item, month_range
+from manga_checker.catalog import _parse_ndl_item, month_range, redistribute_by_pubdate
+from manga_checker.models import Comic
 
 
 SAMPLE = """
@@ -31,6 +32,17 @@ class CatalogParseTests(unittest.TestCase):
         self.assertEqual(comic.volume, "第1巻")
         self.assertEqual(comic.isbn, "9784000000000")
         self.assertEqual(comic.publisher, "出版社")
+
+    def test_redistribute_moves_filled_date_to_real_month(self) -> None:
+        august = Comic(title="風と雲 1", publisher="小学館", pubdate="2026-08-28")
+        september = Comic(title="九月の本 1", publisher="集英社", pubdate="2026-09-10")
+        by_month = {
+            (2026, 8): [],
+            (2026, 9): [august, september],
+        }
+        moved = redistribute_by_pubdate(by_month, [(2026, 8), (2026, 9)])
+        self.assertEqual([c.title for c in moved[(2026, 8)]], ["風と雲 1"])
+        self.assertEqual([c.title for c in moved[(2026, 9)]], ["九月の本 1"])
 
     def test_month_range_is_first_through_last_day(self) -> None:
         self.assertEqual(month_range(2026, 8), ("2026-08-01", "2026-08-31"))
